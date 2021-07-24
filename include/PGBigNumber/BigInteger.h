@@ -4,7 +4,7 @@
 #ifndef PGBIGNUMBER_BIGINTEGER_H
 #define PGBIGNUMBER_BIGINTEGER_H
 
-#include <PGBigNumber/fwd.h>
+#include "fwd.h"
 #include <memory>
 
 PGBN_NAMESPACE_START

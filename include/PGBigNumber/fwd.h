@@ -15,8 +15,8 @@
 #undef PGZXB_DEBUG
 #endif
 
-#include <PGBigNumber/pgfwd.h>
-#include <PGBigNumber/pgdebug.h>
+#include "pgfwd.h"
+#include "pgdebug.h"
 
 // PGBN <=> PGBigNumber
 
