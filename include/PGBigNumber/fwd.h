@@ -25,7 +25,7 @@
 
 #define PGBN_MIN_CPP_VERSION 201703L
 
-#define pgbn ::pg::base::bigNumber
+namespace pgbn = ::pg::base::bigNumber;
 
 // HELPER-MACRO
 #define PGBN_PASS (void(0))
@@ -41,9 +41,6 @@ using SizeType = std::uint64_t;
 
 using BigNumberUnitInteger = std::uint32_t;
 using BigNumber2UnitInteger = std::uint64_t;
-
-using MaxInteger = std::int64_t;
-using MaxUInteger = std::uint64_t;
 
 using StringArg = std::string_view;
 

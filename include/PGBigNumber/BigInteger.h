@@ -7,18 +7,12 @@
 #include <PGBigNumber/fwd.h>
 #include <memory>
 
-
 PGBN_NAMESPACE_START
 
-class BigIntegerImpl;
+class Status;
 
 class BigInteger {
-//    static constexpr Enum InvalidFlag = 0U;
-//    static constexpr Enum PositiveFlag = 1U << 1U;
-//    static constexpr Enum NegativeFlag = 1U << 2U;
-//    static constexpr Enum ZeroFlag = 1U << 3U;
-//    static constexpr Enum OverFlowMIntFlag = 1U << 4U;
-//    static constexpr Enum OverFlowMUIntFlag = 1U << 5U;
+    class BigIntegerImpl;
 public:
     // constructors
     // default
@@ -30,20 +24,19 @@ public:
     // move
     BigInteger(BigInteger && other) noexcept;
 
-    // from POD-integer : only for max_int_type and max_uint_type
-    BigInteger(MaxInteger mi);
-    BigInteger(MaxUInteger umi);
+    // from POD-integer : only for int64_t
+    BigInteger(std::int64_t i);
 
-    // from Human-String, like "123" "+123" "-123" "1e3"
-    explicit BigInteger(const StringArg & str, Enum * err = nullptr);
+    // from Human-String, don't support 'E', like 0|[1-9|A-F|a-f][0-9|A-F|a-f]*
+    explicit BigInteger(const StringArg & str, int radix = 10, Status * status = nullptr);
 
     // from infix-expression, like "2021 ^ 23333 + (23! * (2^3 - 3))",
     // support +, -, *, /(floor-div), !(fact), ^(pow), (, ), &(and), |(or), ^(xor), ~(not),
     //         and self-defined-operators
     /* BigInteger(const ExprTree & tree); */
-    BigInteger(const StringArg & infixExpr, InfixExprMode mode, Enum * err = nullptr);  // 最后再实现, 结合另一个即将开始的项目(PGExpr)
+    BigInteger(const StringArg & infixExpr, InfixExprMode mode, Status * status = nullptr);  // 最后再实现
 
-    // from binary
+    // from binary, default little endian
     BigInteger(void * bin, SizeType len, bool little = true);
 
     // destructor
@@ -56,26 +49,30 @@ public:
     BigInteger & operator= (BigInteger && other) noexcept;
 
     // assign from other types
-    BigInteger & operator= (MaxInteger mi);
-    BigInteger & operator= (MaxUInteger umi);
-    BigInteger & assign(MaxInteger mi);
-    BigInteger & assign(MaxUInteger umi);
-    BigInteger & assign(const StringArg & str, Enum * err = nullptr);
+    BigInteger & operator= (std::int64_t i);
+    BigInteger & assign(std::int64_t i);
+    BigInteger & assign(const StringArg & str, Status * status = nullptr);
     /* BigInteger(const ExprTree & tree); */
-    BigInteger & assign(const StringArg & infixExpr, InfixExprMode mode, Enum * err = nullptr);
+    BigInteger & assign(const StringArg & infixExpr, InfixExprMode mode, Status * status = nullptr);
     BigInteger & assign(void * bin, SizeType len, bool little = true);
 
     // to POD-integer
-    MaxInteger getInteger(Enum * err = nullptr) const;
-    bool tryGetInteger(MaxInteger & result) const;
+    std::int64_t getInt64(Status * status = nullptr) const;
+    bool tryGetInt64(std::int64_t & result) const;
 
-    MaxUInteger getUInteger(Enum * err = nullptr) const;
-    bool tryGetUInteger(MaxUInteger & result) const;
+    std::uint64_t getUInt64(Status * status = nullptr) const;
+    bool tryGetUInt64(std::uint64_t & result) const;
 
-    // get base-data
+    // to POD-integer, get lower bits & to human-string(base10)
+    template <typename T>
+    T as();
+
+    // to string
+    std::string toString(int radix = 10) const;
+
+    // to ByteStream & from ByteStream
     const void * data() const;
-    void * data();
-    SizeType dataByte() const;
+    SizeType dataBytes() const;
     void copyDataTo(void * dest, SizeType maxlen) const;
 
     // is-
@@ -100,44 +97,34 @@ public:
     BigInteger operator~ () const;
 
     BigInteger & operator+= (const BigInteger & other);
-    BigInteger & operator+= (MaxInteger mi);
-    BigInteger & operator+= (MaxUInteger umi);
+    BigInteger & operator+= (std::int64_t i64);
 
     BigInteger & operator-= (const BigInteger & other);
-    BigInteger & operator-= (MaxInteger mi);
-    BigInteger & operator-= (MaxUInteger umi);
+    BigInteger & operator-= (std::int64_t i64);
 
     BigInteger & operator*= (const BigInteger & other);
-    BigInteger & operator*= (MaxInteger mi);
-    BigInteger & operator*= (MaxUInteger umi);
+    BigInteger & operator*= (std::int64_t i64);
 
     BigInteger & operator/= (const BigInteger & other);
-    BigInteger & operator/= (MaxInteger mi);
-    BigInteger & operator/= (MaxUInteger umi);
+    BigInteger & operator/= (std::int64_t i64);
 
     BigInteger & operator%= (const BigInteger & other);
-    BigInteger & operator%= (MaxInteger mi);
-    BigInteger & operator%= (MaxUInteger umi);
+    BigInteger & operator%= (std::int64_t i64);
 
     BigInteger & operator&= (const BigInteger & other);
-    BigInteger & operator&= (MaxInteger mi);
-    BigInteger & operator&= (MaxUInteger umi);
+    BigInteger & operator&= (std::int64_t i64);
 
     BigInteger & operator|= (const BigInteger & other);
-    BigInteger & operator|= (MaxInteger mi);
-    BigInteger & operator|= (MaxUInteger umi);
+    BigInteger & operator|= (std::int64_t i64);
 
     BigInteger & operator^= (const BigInteger & other);
-    BigInteger & operator^= (MaxInteger mi);
-    BigInteger & operator^= (MaxUInteger umi);
+    BigInteger & operator^= (std::int64_t i64);
 
     BigInteger & operator<<= (const BigInteger & other);
-    BigInteger & operator<<= (MaxInteger mi);
-    BigInteger & operator<<= (MaxUInteger umi);
+    BigInteger & operator<<= (std::int64_t i64);
 
     BigInteger & operator>>= (const BigInteger & other);
-    BigInteger & operator>>= (MaxInteger mi);
-    BigInteger & operator>>= (MaxUInteger umi);
+    BigInteger & operator>>= (std::int64_t i64);
 
     BigInteger operator+ () const;
     BigInteger operator- () const;
@@ -148,104 +135,77 @@ public:
 
     // +, -, *, /, %, &, |, ^ : friend-functions, make from op-ass operators
     friend BigInteger operator+ (const BigInteger & left, const BigInteger & right);
-    friend BigInteger operator+ (const BigInteger & left, MaxInteger right);
-    friend BigInteger operator+ (const BigInteger & left, MaxUInteger right);
-    friend BigInteger operator+ (MaxInteger left, const BigInteger & right);
-    friend BigInteger operator+ (MaxUInteger left, const BigInteger & right);
+    friend BigInteger operator+ (const BigInteger & left, std::int64_t right);
+    friend BigInteger operator+ (std::int64_t left, const BigInteger & right);
 
     friend BigInteger operator- (const BigInteger & left, const BigInteger & right);
-    friend BigInteger operator- (const BigInteger & left, MaxInteger right);
-    friend BigInteger operator- (const BigInteger & left, MaxUInteger right);
-    friend BigInteger operator- (MaxInteger left, const BigInteger & right);
-    friend BigInteger operator- (MaxUInteger left, const BigInteger & right);
+    friend BigInteger operator- (const BigInteger & left, std::int64_t right);
+    friend BigInteger operator- (std::int64_t left, const BigInteger & right);
 
     friend BigInteger operator* (const BigInteger & left, const BigInteger & right);
-    friend BigInteger operator* (const BigInteger & left, MaxInteger right);
-    friend BigInteger operator* (const BigInteger & left, MaxUInteger right);
-    friend BigInteger operator* (MaxInteger left, const BigInteger & right);
-    friend BigInteger operator* (MaxUInteger left, const BigInteger & right);
+    friend BigInteger operator* (const BigInteger & left, std::int64_t right);
+    friend BigInteger operator* (std::int64_t left, const BigInteger & right);
 
     friend BigInteger operator/ (const BigInteger & left, const BigInteger & right);
-    friend BigInteger operator/ (const BigInteger & left, MaxInteger right);
-    friend BigInteger operator/ (const BigInteger & left, MaxUInteger right);
-    friend BigInteger operator/ (MaxInteger left, const BigInteger & right);
-    friend BigInteger operator/ (MaxUInteger left, const BigInteger & right);
+    friend BigInteger operator/ (const BigInteger & left, std::int64_t right);
+    friend BigInteger operator/ (std::int64_t left, const BigInteger & right);
 
     friend BigInteger operator% (const BigInteger & left, const BigInteger & right);
-    friend BigInteger operator% (const BigInteger & left, MaxInteger right);
-    friend BigInteger operator% (const BigInteger & left, MaxUInteger right);
-    friend BigInteger operator% (MaxInteger left, const BigInteger & right);
-    friend BigInteger operator% (MaxUInteger left, const BigInteger & right);
+    friend BigInteger operator% (const BigInteger & left, std::int64_t right);
+    friend BigInteger operator% (std::int64_t left, const BigInteger & right);
 
     friend BigInteger operator& (const BigInteger & left, const BigInteger & right);
-    friend BigInteger operator& (const BigInteger & left, MaxInteger right);
-    friend BigInteger operator& (const BigInteger & left, MaxUInteger right);
-    friend BigInteger operator& (MaxInteger left, const BigInteger & right);
-    friend BigInteger operator& (MaxUInteger left, const BigInteger & right);
+    friend BigInteger operator& (const BigInteger & left, std::int64_t right);
+    friend BigInteger operator& (std::int64_t left, const BigInteger & right);
 
     friend BigInteger operator| (const BigInteger & left, const BigInteger & right);
-    friend BigInteger operator| (const BigInteger & left, MaxInteger right);
-    friend BigInteger operator| (const BigInteger & left, MaxUInteger right);
-    friend BigInteger operator| (MaxInteger left, const BigInteger & right);
-    friend BigInteger operator| (MaxUInteger left, const BigInteger & right);
+    friend BigInteger operator| (const BigInteger & left, std::int64_t right);
+    friend BigInteger operator| (std::int64_t left, const BigInteger & right);
 
     friend BigInteger operator^ (const BigInteger & left, const BigInteger & right);
-    friend BigInteger operator^ (const BigInteger & left, MaxInteger right);
-    friend BigInteger operator^ (const BigInteger & left, MaxUInteger right);
-    friend BigInteger operator^ (MaxInteger left, const BigInteger & right);
-    friend BigInteger operator^ (MaxUInteger left, const BigInteger & right);
+    friend BigInteger operator^ (const BigInteger & left, std::int64_t right);
+    friend BigInteger operator^ (std::int64_t left, const BigInteger & right);
 
     friend BigInteger operator<< (const BigInteger & left, const BigInteger & right);
-    friend BigInteger operator<< (const BigInteger & left, MaxInteger right);
-    friend BigInteger operator<< (const BigInteger & left, MaxUInteger right);
-    friend BigInteger operator<< (MaxInteger left, const BigInteger & right);
-    friend BigInteger operator<< (MaxUInteger left, const BigInteger & right);
+    friend BigInteger operator<< (const BigInteger & left, std::int64_t right);
+    friend BigInteger operator<< (std::int64_t left, const BigInteger & right);
 
     friend BigInteger operator>> (const BigInteger & left, const BigInteger & right);
-    friend BigInteger operator>> (const BigInteger & left, MaxInteger right);
-    friend BigInteger operator>> (const BigInteger & left, MaxUInteger right);
-    friend BigInteger operator>> (MaxInteger left, const BigInteger & right);
-    friend BigInteger operator>> (MaxUInteger left, const BigInteger & right);
+    friend BigInteger operator>> (const BigInteger & left, std::int64_t right);
+    friend BigInteger operator>> (std::int64_t left, const BigInteger & right);
 
-    // ==, !=, <, <=, >, >= : friend-functions
+    // ==, !=, <, <=, >, >= : friend-functions, from cmp-algorithm
     friend bool operator== (const BigInteger & left, const BigInteger & right);
-    friend bool operator== (const BigInteger & left, MaxInteger right);
-    friend bool operator== (const BigInteger & left, MaxUInteger right);
-    friend bool operator== (MaxInteger left, const BigInteger & right);
-    friend bool operator== (MaxUInteger left, const BigInteger & right);
+    friend bool operator== (const BigInteger & left, std::int64_t right);
+    friend bool operator== (std::int64_t left, const BigInteger & right);
 
     friend bool operator!= (const BigInteger & left, const BigInteger & right);
-    friend bool operator!= (const BigInteger & left, MaxInteger right);
-    friend bool operator!= (const BigInteger & left, MaxUInteger right);
-    friend bool operator!= (MaxInteger left, const BigInteger & right);
-    friend bool operator!= (MaxUInteger left, const BigInteger & right);
+    friend bool operator!= (const BigInteger & left, std::int64_t right);
+    friend bool operator!= (std::int64_t left, const BigInteger & right);
 
     friend bool operator< (const BigInteger & left, const BigInteger & right);
-    friend bool operator< (const BigInteger & left, MaxInteger right);
-    friend bool operator< (const BigInteger & left, MaxUInteger right);
-    friend bool operator< (MaxInteger left, const BigInteger & right);
-    friend bool operator< (MaxUInteger left, const BigInteger & right);
+    friend bool operator< (const BigInteger & left, std::int64_t right);
+    friend bool operator< (std::int64_t left, const BigInteger & right);
 
     friend bool operator<= (const BigInteger & left, const BigInteger & right);
-    friend bool operator<= (const BigInteger & left, MaxInteger right);
-    friend bool operator<= (const BigInteger & left, MaxUInteger right);
-    friend bool operator<= (MaxInteger left, const BigInteger & right);
-    friend bool operator<= (MaxUInteger left, const BigInteger & right);
+    friend bool operator<= (const BigInteger & left, std::int64_t right);
+    friend bool operator<= (std::int64_t left, const BigInteger & right);
 
     friend bool operator> (const BigInteger & left, const BigInteger & right);
-    friend bool operator> (const BigInteger & left, MaxInteger right);
-    friend bool operator> (const BigInteger & left, MaxUInteger right);
-    friend bool operator> (MaxInteger left, const BigInteger & right);
-    friend bool operator> (MaxUInteger left, const BigInteger & right);
+    friend bool operator> (const BigInteger & left, std::int64_t right);
+    friend bool operator> (std::int64_t left, const BigInteger & right);
 
     friend bool operator>= (const BigInteger & left, const BigInteger & right);
-    friend bool operator>= (const BigInteger & left, MaxInteger right);
-    friend bool operator>= (const BigInteger & left, MaxUInteger right);
-    friend bool operator>= (MaxInteger left, const BigInteger & right);
-    friend bool operator>= (MaxUInteger left, const BigInteger & right);
+    friend bool operator>= (const BigInteger & left, std::int64_t right);
+    friend bool operator>= (std::int64_t left, const BigInteger & right);
 
-    // inverse
+    // inverse-bits
     void inverse();
+
+public:
+    // static functions
+    template<typename T>
+    static BigInteger valueOf(); // integer & string -> BigInteger
 
 private:
     std::unique_ptr<BigIntegerImpl> m_pImpl;
