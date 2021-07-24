@@ -1,0 +1,71 @@
+//
+// Created by PGZXB on 2021/4/10.
+//
+#ifndef PGBIGNUMBER_FWD_H
+#define PGBIGNUMBER_FWD_H
+
+#include <cinttypes>
+#include <limits>
+#include <string>
+#include <string_view>
+
+#if defined(PGBN_DEBUG) && !defined(PGZXB_DEBUG) 
+#define PGZXB_DEBUG
+#elif !defined(PGBN_DEBUG)
+#undef PGZXB_DEBUG
+#endif
+
+#include <PGBigNumber/pgfwd.h>
+#include <PGBigNumber/pgdebug.h>
+
+// PGBN <=> PGBigNumber
+
+#define PGBN_NAMESPACE_START namespace pg { namespace base { namespace bigNumber {
+#define PGBN_NAMESPACE_END } } }
+
+#define PGBN_MIN_CPP_VERSION 201703L
+
+#define pgbn ::pg::base::bigNumber
+
+// HELPER-MACRO
+#define PGBN_PASS (void(0))
+/*
+ * BigInteger has a std::shared_ptr<BigIntegerImpl>, using COW
+ * COW : Check the ref count of ptr to impl, copy if count != 1
+ */
+PGBN_NAMESPACE_START
+
+constexpr struct InfixExprMode { } infixExprMode;
+
+using SizeType = std::uint64_t;
+
+using BigNumberUnitInteger = std::uint32_t;
+using BigNumber2UnitInteger = std::uint64_t;
+
+using MaxInteger = std::int64_t;
+using MaxUInteger = std::uint64_t;
+
+using StringArg = std::string_view;
+
+using Enum = std::uint32_t;
+constexpr std::uint16_t MAX_PER_ENUM = sizeof(Enum) * 8;
+
+inline bool checkLittleEndian() {
+    char test[] = {'\x01', '\x02', '\x03', '\x04'};
+
+    return *(int*)test == 0x04030201;
+}
+
+inline constexpr bool isLittleEndian() {  // FIXME : 待跨平台
+#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+    return false;
+#elif __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+    return true;
+#endif
+}
+
+namespace err {
+
+}
+PGBN_NAMESPACE_END
+#endif //PGBIGNUMBER_FWD_H

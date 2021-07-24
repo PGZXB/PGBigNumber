@@ -1,0 +1,10 @@
+include_directories(../include)
+
+file(GLOB test_src_files *.cpp)
+foreach(file ${test_src_files})
+    set(file_name ${file})
+    string(REGEX REPLACE ".+/(.+)\\..*" "\\1" file_name ${file})
+    project(${file_name})
+    add_executable(${file_name} ${file})
+    target_link_libraries(${file_name} ${LIBS_FOR_TEST})
+endforeach(file)
