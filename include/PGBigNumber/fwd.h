@@ -25,8 +25,6 @@
 
 #define PGBN_MIN_CPP_VERSION 201703L
 
-namespace pgbn = ::pg::base::bigNumber;
-
 // HELPER-MACRO
 #define PGBN_PASS (void(0))
 /*
@@ -65,4 +63,7 @@ namespace err {
 
 }
 PGBN_NAMESPACE_END
+
+namespace pgbn = ::pg::base::bigNumber;
+
 #endif //PGBIGNUMBER_FWD_H

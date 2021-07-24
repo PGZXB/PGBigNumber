@@ -10,9 +10,9 @@
 PGBN_NAMESPACE_START
 
 class Status;
+class BigIntegerImpl;
 
 class BigInteger {
-    class BigIntegerImpl;
 public:
     // constructors
     // default
