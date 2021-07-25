@@ -37,6 +37,7 @@ PGBN_NAMESPACE_START
 constexpr struct InfixExprMode { } infixExprMode;
 
 using SizeType = std::uint64_t;
+using Byte = std::uint8_t;
 
 using BigNumberUnitInteger = std::uint32_t;
 using BigNumber2UnitInteger = std::uint64_t;

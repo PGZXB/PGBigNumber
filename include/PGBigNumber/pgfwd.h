@@ -41,10 +41,17 @@
             assert(exp); \
             break; \
         } PGZXB_PASS
+
+    #define PGZXB_DEBUG_PTR_NON_NULL_CHECK(ptr) PGZXB_DEBUG_ASSERT_EX("Pointer Not Null", (ptr) != nullptr)
+
+    #define PGZXB_DEBUG_EXEC(code) code
+
 #else
-#define PGZXB_DEBUG_ASSERT_IF(x) PGZXB_PASS
-#define PGZXB_DEBUG_ASSERT(exp) PGZXB_PASS
-#define PGZXB_DEBUG_ASSERT_EX(msg, exp) PGZXB_PASS
+    #define PGZXB_DEBUG_ASSERT_IF(x) PGZXB_PASS
+    #define PGZXB_DEBUG_ASSERT(exp) PGZXB_PASS
+    #define PGZXB_DEBUG_ASSERT_EX(msg, exp) PGZXB_PASS
+    #define PGZXB_DEBUG_PTR_NON_NULL_CHECK(ptr) PGZXB_PASS
+    #define PGZXB_DEBUG_EXEC(code) PGZXB_PASS
 #endif
 
 PGZXB_ROOT_NAMESPACE_START

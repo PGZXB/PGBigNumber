@@ -11,13 +11,16 @@ PGBN_NAMESPACE_START
 // manage the range of vector
 template <typename T = int, typename A = std::allocator<T>>
 class Slice {
-    static constexpr SizeType DEFAULT_PRE_SPACE = 5;
+    static constexpr SizeType DEFAULT_PRE_SPACE = 1;
     using Vec = std::vector<T, A>;
 public:
     using iterator = typename Vec::iterator;
     using const_iterator = typename Vec::const_iterator;
 
-    Slice() = default;
+    Slice() : m_data(new Vec(DEFAULT_PRE_SPACE * 2)),
+              m_lo(DEFAULT_PRE_SPACE), m_hi(DEFAULT_PRE_SPACE) {
+
+    }
     
     explicit Slice(
         std::shared_ptr<Vec> pData,
@@ -36,10 +39,31 @@ public:
     }
 
     Slice(const Slice &) = default;
-    Slice(Slice &&) = default;
 
-    Slice & operator= (Slice &) = default;
-    Slice & operator= (Slice &&) = default;
+    Slice(Slice && other) noexcept
+        : m_data(std::move(other.m_data)),
+          m_lo(other.m_lo),
+          m_hi(other.m_hi) {
+
+        other.m_data.reset(new Vec(DEFAULT_PRE_SPACE * 2));
+        other.m_lo = DEFAULT_PRE_SPACE;
+        other.m_hi = DEFAULT_PRE_SPACE;
+    }
+
+    Slice & operator= (const Slice &) = default;
+
+    Slice & operator= (Slice && other) {
+
+        m_data = std::move(other.m_data);
+        m_lo = other.m_lo;
+        m_hi = other.m_hi;
+
+        other.m_data.reset(new Vec(DEFAULT_PRE_SPACE * 2));
+        other.m_lo = DEFAULT_PRE_SPACE;
+        other.m_hi = DEFAULT_PRE_SPACE;
+
+        return *this;
+    }
 
     Slice & cloneData() {
         if (!m_data || m_data.use_count() == 1) return *this;
@@ -78,7 +102,11 @@ public:
     }
 
     Slice & slice(SizeType lo, SizeType hi) {
-        PGZXB_DEBUG_ASSERT_EX("lo must be less than hi", lo < hi);
+        PGZXB_DEBUG_ASSERT_EX("lo must be less than hi", lo <= hi);
+        if (lo == hi) {
+            m_hi = m_lo;
+            return *this;
+        }
         if (hi > count()) m_data->resize(m_lo + hi);
         m_lo = m_lo + lo;
         m_hi = m_lo - lo + hi;
@@ -87,7 +115,7 @@ public:
     }
 
     Slice sliced(SizeType lo, SizeType hi) const {
-        PGZXB_DEBUG_ASSERT_EX("lo must be less than hi", lo < hi);
+        PGZXB_DEBUG_ASSERT_EX("lo must be less than hi", lo <= hi);
 
         Slice copy = *this;
 
@@ -122,7 +150,7 @@ public:
     bool hasSameBaseData(const Slice & other) const { return m_data == other.m_data; }
 
 private:
-    std::shared_ptr<Vec> m_data{new Vec()};
+    std::shared_ptr<Vec> m_data;
     SizeType m_lo = 0, m_hi = 0; // [lo, hi)
 };
 

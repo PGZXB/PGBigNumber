@@ -36,8 +36,8 @@ public:
     /* BigInteger(const ExprTree & tree); */
     BigInteger(const StringArg & infixExpr, InfixExprMode mode, Status * status = nullptr);  // 最后再实现
 
-    // from binary, default little endian
-    BigInteger(void * bin, SizeType len, bool little = true);
+    // from binary, 2's complement, default little endian
+    BigInteger(const void * bin, SizeType len, bool little = true);
 
     // destructor
     ~BigInteger();
@@ -54,7 +54,7 @@ public:
     BigInteger & assign(const StringArg & str, Status * status = nullptr);
     /* BigInteger(const ExprTree & tree); */
     BigInteger & assign(const StringArg & infixExpr, InfixExprMode mode, Status * status = nullptr);
-    BigInteger & assign(void * bin, SizeType len, bool little = true);
+    BigInteger & assign(const void * bin, SizeType len, bool little = true); // from little endian 2's complement
 
     // to POD-integer
     std::int64_t getInt64(Status * status = nullptr) const;
@@ -70,10 +70,10 @@ public:
     // to string
     std::string toString(int radix = 10) const;
 
-    // to ByteStream & from ByteStream
-    const void * data() const;
-    SizeType dataBytes() const;
-    void copyDataTo(void * dest, SizeType maxlen) const;
+    // bytes
+    SizeType bits() const; // minimal bit-num
+    SizeType bytes() const; // minimal byte-num
+    SizeType copyDataTo(void * dest, SizeType maxlen) const;
 
     // is-
     bool isValid() const;
@@ -92,7 +92,7 @@ public:
     BigInteger operator++ (int);
 
     BigInteger & operator-- ();
-    BigInteger & operator-- (int);
+    BigInteger operator-- (int);
 
     BigInteger operator~ () const;
 
@@ -120,14 +120,16 @@ public:
     BigInteger & operator^= (const BigInteger & other);
     BigInteger & operator^= (std::int64_t i64);
 
-    BigInteger & operator<<= (const BigInteger & other);
-    BigInteger & operator<<= (std::int64_t i64);
+    /* BigInteger & operator<<= (const BigInteger & other); */
+    BigInteger & operator<<= (std::uint64_t u64);
 
-    BigInteger & operator>>= (const BigInteger & other);
-    BigInteger & operator>>= (std::int64_t i64);
+    /* BigInteger & operator>>= (const BigInteger & other); */
+    BigInteger & operator>>= (std::uint64_t u64);
 
     BigInteger operator+ () const;
     BigInteger operator- () const;
+    BigInteger negated(); // <=> operator-()
+    BigInteger & negate();
 
     // FIXME : use && and &, to get better performance
 
@@ -166,13 +168,13 @@ public:
     friend BigInteger operator^ (const BigInteger & left, std::int64_t right);
     friend BigInteger operator^ (std::int64_t left, const BigInteger & right);
 
-    friend BigInteger operator<< (const BigInteger & left, const BigInteger & right);
+    // friend BigInteger operator<< (const BigInteger & left, const BigInteger & right);
     friend BigInteger operator<< (const BigInteger & left, std::int64_t right);
-    friend BigInteger operator<< (std::int64_t left, const BigInteger & right);
+    // friend BigInteger operator<< (std::int64_t left, const BigInteger & right);
 
-    friend BigInteger operator>> (const BigInteger & left, const BigInteger & right);
+    // friend BigInteger operator>> (const BigInteger & left, const BigInteger & right);
     friend BigInteger operator>> (const BigInteger & left, std::int64_t right);
-    friend BigInteger operator>> (std::int64_t left, const BigInteger & right);
+    // friend BigInteger operator>> (std::int64_t left, const BigInteger & right);
 
     // ==, !=, <, <=, >, >= : friend-functions, from cmp-algorithm
     friend bool operator== (const BigInteger & left, const BigInteger & right);
