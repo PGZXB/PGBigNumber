@@ -12,7 +12,8 @@
 #include <bitset>
 #include <iostream>
 #define PGZXB_DEBUG_INFO_HEADER "[DEBUG]In " << __FILE__ << " in " << __func__ << " at " << __LINE__ << " : "
-#define PGZXB_DEBUG_PrintVar(val) std::cout << PGZXB_DEBUG_INFO_HEADER << #val" : " << val << "\n"
+#define PGZXB_DEBUG_Print(msg) std::cout << PGZXB_DEBUG_INFO_HEADER << (msg) << "\n"
+#define PGZXB_DEBUG_PrintVar(val) std::cout << PGZXB_DEBUG_INFO_HEADER << #val" : " << (val) << "\n"
 #define PGZBX_DEBUG_PrintBin(val) std::cout << PGZXB_DEBUG_INFO_HEADER << #val" : " << std::bitset<sizeof(val) * 8>(val) << "\n"
 #define PGZXB_DEBUG_CallFunc(func) PGZXB_DEBUG_PrintVar(func)
 
@@ -62,7 +63,7 @@ namespace pg::util::stringUtil::__IN_fmtUtil {
     std::enable_if_t<!has_iterator<_Type>::value, std::string> transToString(const _Type& ele, const std::string &);
 
     // function-definitions
-    std::string transToString(const int & ele, const std::string & limit) {
+    inline std::string transToString(const int & ele, const std::string & limit) {
         char buf[20] = { 0 };
         char fmt[10] = { 0 };
         sprintf(fmt, "%%%sd", limit.c_str());
@@ -70,15 +71,15 @@ namespace pg::util::stringUtil::__IN_fmtUtil {
         return std::string().assign(buf, len);
     }
 
-    std::string transToString(const bool & ele, const std::string &) {
+    inline std::string transToString(const bool & ele, const std::string &) {
         return ele ? "true" : "false";
     }
 
-    std::string transToString(const char& ele, const std::string &) {
+    inline std::string transToString(const char& ele, const std::string &) {
         return std::string() + ele;
     }
 
-    std::string transToString(const short & ele, const std::string & limit) {
+    inline std::string transToString(const short & ele, const std::string & limit) {
         char buf[20] = { 0 };
         char fmt[10] = { 0 };
         sprintf(fmt, "%%%shd", limit.c_str());
@@ -86,7 +87,7 @@ namespace pg::util::stringUtil::__IN_fmtUtil {
         return std::string().assign(buf, len);
     }
 
-    std::string transToString(const long & ele, const std::string & limit) {
+    inline std::string transToString(const long & ele, const std::string & limit) {
         char buf[40] = { 0 };
         char fmt[20] = { 0 };
         sprintf(fmt, "%%%sld", limit.c_str());
@@ -94,7 +95,7 @@ namespace pg::util::stringUtil::__IN_fmtUtil {
         return std::string().assign(buf, len);
     }
 
-    std::string transToString(const long long & ele, const std::string & limit) {
+    inline std::string transToString(const long long & ele, const std::string & limit) {
         char buf[40] = { 0 };
         char fmt[20] = { 0 };
         sprintf(fmt, "%%%slld", limit.c_str());
@@ -102,7 +103,7 @@ namespace pg::util::stringUtil::__IN_fmtUtil {
         return std::string().assign(buf, len);
     }
 
-    std::string transToString(const float & ele, const std::string & limit) {
+    inline std::string transToString(const float & ele, const std::string & limit) {
         char buf[40] = { 0 };
         char fmt[20] = { 0 };
         sprintf(fmt, "%%%sf", limit.c_str());
@@ -110,7 +111,7 @@ namespace pg::util::stringUtil::__IN_fmtUtil {
         return std::string().assign(buf, len);
     }
 
-    std::string transToString(const double & ele, const std::string & limit) {
+    inline std::string transToString(const double & ele, const std::string & limit) {
         char buf[40] = { 0 };
         char fmt[20] = { 0 };
         sprintf(fmt, "%%%slf", limit.c_str());
@@ -118,7 +119,7 @@ namespace pg::util::stringUtil::__IN_fmtUtil {
         return std::string().assign(buf, len);
     }
 
-    std::string transToString(const long double & ele, const std::string & limit) {
+    inline std::string transToString(const long double & ele, const std::string & limit) {
         char buf[50] = { 0 };
         char fmt[30] = { 0 };
         sprintf(fmt, "%%%sllf", limit.c_str());
@@ -126,7 +127,7 @@ namespace pg::util::stringUtil::__IN_fmtUtil {
         return std::string().assign(buf, len);
     }
 
-    std::string transToString(const std::string & ele, const std::string & limit) {
+    inline std::string transToString(const std::string & ele, const std::string & limit) {
         struct HeapCharArrayWrapper {  // temp-tool
             HeapCharArrayWrapper(char * arr) : ptr(arr) { }
             ~HeapCharArrayWrapper() { if (ptr != nullptr) delete [] ptr; }
@@ -141,7 +142,7 @@ namespace pg::util::stringUtil::__IN_fmtUtil {
         return std::string(buf.ptr);
     }
 
-    std::string transToString(const char * ele, const std::string & limit) {
+    inline std::string transToString(const char * ele, const std::string & limit) {
         struct HeapCharArrayWrapper {  // temp-tool
             HeapCharArrayWrapper(char * arr) : ptr(arr) { }
             ~HeapCharArrayWrapper() { if (ptr != nullptr) delete [] ptr; }
@@ -250,13 +251,13 @@ namespace pg::util::stringUtil {
             __IN_parseArgs(res, limits, limStrIter, args...);
         }
 
-        void __IN_parseArgs(
+        inline void __IN_parseArgs(
             std::vector<std::string> & res,
             const std::vector<std::string>& limits,
             std::vector<std::string>::const_iterator & limStrIter
             ) { }
 
-        std::vector<std::pair<std::string::const_iterator, std::string::const_iterator>> 
+        inline std::vector<std::pair<std::string::const_iterator, std::string::const_iterator>> 
             parseBracket(
                 const std::string & str, const char * leftBracket, const char * rightBracket) {
                 

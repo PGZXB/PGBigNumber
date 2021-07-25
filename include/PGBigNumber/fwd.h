@@ -8,6 +8,7 @@
 #include <limits>
 #include <string>
 #include <string_view>
+#include <functional>
 
 #if defined(PGBN_DEBUG) && !defined(PGZXB_DEBUG) 
 #define PGZXB_DEBUG
@@ -44,6 +45,9 @@ using StringArg = std::string_view;
 
 using Enum = std::uint32_t;
 constexpr std::uint16_t MAX_PER_ENUM = sizeof(Enum) * 8;
+
+using Callback = std::function<void()>;
+extern Callback NULL_CALLBACK;
 
 inline bool checkLittleEndian() {
     char test[] = {'\x01', '\x02', '\x03', '\x04'};
