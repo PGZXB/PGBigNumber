@@ -127,7 +127,7 @@ public:
     }
 
     const T & operator[] (SizeType i) const {
-        return m_data.operator[](m_lo + i);
+        return m_data->operator[](m_lo + i);
     }
 
     iterator begin() {
