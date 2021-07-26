@@ -6,6 +6,11 @@
 using namespace pgbn;
 
 // helper-functions
+
+PGBN_NAMESPACE_START
+namespace detail {
+
+// 去除后导零
 // static void eraseZerosPrefix(Slice<std::uint32_t> & s) {
 //     const SizeType cnt = s.count();
 //     SizeType i = 0;
@@ -13,18 +18,61 @@ using namespace pgbn;
 //     s.slice(i, cnt); 
 // }
 
-static void eraseZerosSuffix(Slice<std::uint32_t> & s) {
+// 去除前导零
+static inline void eraseZerosSuffix(Slice<std::uint32_t> & s) {
     auto iter = s.end() - 1;
     while (iter >= s.begin() && *iter == 0) --iter;
     s.slice(0, iter - s.begin() + 1);
 }
 
+// 根据flags获取符号字节
+static inline Byte signByte(BNFLAG Enum flags) {
+    return (flags & BNFlag::NEGATIVE) != 0 ? 0xff : 0;
+}
+
+// 设置标志位
+static inline void setBits(BNFLAG Enum & result, BNFLAG Enum bits) {
+    result |= bits;
+}
+
+// 擦除标志位
+static inline void eraseBits(BNFLAG Enum & result, BNFLAG Enum bits) {
+    result &= ~bits;
+}
+
+// 把int64_t当做无限长的符号扩展后的整型, 获取第n个U32
+static inline std::uint32_t getU32OfI64ByIndex(::std::int64_t i64, SizeType n) {
+    if (i64 == 0) return 0x0; // 如果是零直接返回0
+    if (n >= 2) return i64 < 0 ? 0xffffffff : 0x0; // 高于最高, 返回符号
+
+    std::uint32_t u32 = static_cast<std::uint32_t>((i64 >> (n * 32ULL)) & (0x00000000ffffffff));
+
+    return u32;
+}
+
+// 将二进制Slice取反加1
+static inline void notPlusOne(Slice<std::uint32_t> & s, SizeType firstNonZeroU32Index) {
+    const SizeType cnt = s.count();
+    PGZXB_DEBUG_ASSERT(cnt != 0);
+    PGZXB_DEBUG_ASSERT(firstNonZeroU32Index <= cnt);
+
+    if (firstNonZeroU32Index == cnt) return;
+
+    s[firstNonZeroU32Index] = -s[firstNonZeroU32Index];
+    for (SizeType i = firstNonZeroU32Index + 1; i < cnt; ++i) {
+        s[i] = ~s[i];
+    }
+}
+
+}
+PGBN_NAMESPACE_END
+
 // BigIntegerImpl's member functions
 BigIntegerImpl::BigIntegerImpl() = default;
 
-BigIntegerImpl::BigIntegerImpl(const BigIntegerImpl & other) = default; // 浅拷贝
+BigIntegerImpl::BigIntegerImpl(const BigIntegerImpl &) = default; // 浅拷贝
 
-BigIntegerImpl::BigIntegerImpl(BigIntegerImpl && other) noexcept = default; // 浅拷贝
+BigIntegerImpl::BigIntegerImpl(BigIntegerImpl &&) noexcept = default; // 浅拷贝
 
 BigIntegerImpl::BigIntegerImpl(std::int64_t i64) {
     assign(i64);
@@ -38,6 +86,7 @@ BigIntegerImpl & BigIntegerImpl::assign(const BigIntegerImpl & other) { // 浅�
     if (this == &other) return *this;
 
     m_flags = other.m_flags;
+    m_firstNotZeroU32IndexLazy = other.m_firstNotZeroU32IndexLazy;
     m_mag = other.m_mag;
     
     return *this;
@@ -47,9 +96,11 @@ BigIntegerImpl & BigIntegerImpl::assign(BigIntegerImpl && other) {
     if (this == &other) return *this;
 
     m_flags = other.m_flags;
+    m_firstNotZeroU32IndexLazy = other.m_firstNotZeroU32IndexLazy;
     m_mag = std::move(other.m_mag);
 
     other.m_flags = BNFlag::INVALID;
+    other.m_firstNotZeroU32IndexLazy = 0;
     return *this;
 }
 
@@ -103,7 +154,7 @@ BigIntegerImpl & BigIntegerImpl::assign(const void * bin, SizeType len, bool lit
         
         const Byte * bytes = reinterpret_cast<const Byte *>(bin) + len - 1;
         const Byte * start = reinterpret_cast<const Byte *>(bin);
-        const Byte sign = m_flags == BNFlag::POSITIVE ? 0 : 0xff;
+        const Byte sign = m_flags == BNFlag::POSITIVE ? 0 : 0xff; // FIXME : replace with signByte
         
         while (bytes >= start && *bytes == sign) --bytes;
         len =  (bytes + 1) - start;
@@ -113,7 +164,7 @@ BigIntegerImpl & BigIntegerImpl::assign(const void * bin, SizeType len, bool lit
         const Byte * bytes = reinterpret_cast<const Byte *>(bin);
         const Byte * start = reinterpret_cast<const Byte *>(bin);
         const Byte * end = reinterpret_cast<const Byte *>(bin) + len;
-        const Byte sign = m_flags == BNFlag::POSITIVE ? 0 : 0xff;
+        const Byte sign = m_flags == BNFlag::POSITIVE ? 0 : 0xff; // FIXME : replace with signByte
         
         while (bytes < end && *bytes == sign) ++bytes;
 
@@ -197,8 +248,152 @@ BigIntegerImpl & BigIntegerImpl::assign(const void * bin, SizeType len, bool lit
 
     std::memcpy(&m_mag[0], bin, len);
     
-    eraseZerosSuffix(m_mag); // 去除前导零
+    detail::eraseZerosSuffix(m_mag); // 去除前导零
     if (m_mag.count() == 0) m_flags |= BNFlag::ZERO;
 
     return *this;
 }
+
+std::uint32_t BigIntegerImpl::getU32(SizeType n) const {
+    
+    if (flagsContains(BNFlag::ZERO)) return 0x0; // 如果是零直接返回0
+    if (n >= m_mag.count()) return flagsContains(BNFlag::NEGATIVE) ? 0xffffffff : 0x0; // 高于最高, 返回符号
+
+    std::uint32_t magInt = m_mag[n];
+
+    if (flagsContains(BNFlag::POSITIVE)) return magInt;
+    
+    auto fnu32zi = getFirstNonZeroU32Index();
+    if (n > fnu32zi) return ~magInt;
+    else if (n < fnu32zi) return 0x0;
+    else return -magInt;
+}
+
+bool BigIntegerImpl::flagsContains(BNFLAG Enum flags) const {
+    return (m_flags & flags) == flags;
+}
+
+bool BigIntegerImpl::flagsEquals(BNFLAG Enum flags) const {
+    return m_flags == flags;
+}
+
+#define DEFINE_BITWISE(operator, otherlen, getU32Index) \
+    m_mag.cloneData(); \
+    getU32(0); \
+    const SizeType len = std::max(m_mag.count(), otherlen) + 1; \
+    m_mag.slice(0, len); \
+    for (SizeType i = 0; i < len; ++i) { \
+        m_mag[i] = getU32(i) operator getU32Index; \
+    } \
+    switch (m_mag[m_mag.count() - 1]) { \
+    case 0 : \
+        setFlagsToPositive(); \
+        detail::eraseZerosSuffix(m_mag); \
+        if (m_mag.count() == 0) setFlagsToZero(); \
+        beginWrite(); \
+        return; \
+    case 0xffffffff : \
+        setFlagsToNegtaive(); \
+        beginWrite(); \
+        detail::notPlusOne(m_mag, getFirstNonZeroU32Index()); \
+        detail::eraseZerosSuffix(m_mag); \
+        return; \
+    default : \
+        PGZXB_DEBUG_ASSERT_EX("Not Reached", false); \
+    } PGZXB_PASS
+
+#define DEFINE_BITWISE_WITH_I64(operator) \
+    DEFINE_BITWISE(operator, static_cast<SizeType>(2), detail::getU32OfI64ByIndex(i64, i))
+
+#define DEFINE_BITWISE_WITH_OTHER(operator) \
+    DEFINE_BITWISE(operator, other.m_mag.count(), other.getU32(i))
+
+
+void BigIntegerImpl::andAssign(std::int64_t i64) {
+    DEFINE_BITWISE_WITH_I64(&);
+}
+
+void BigIntegerImpl::andAssign(const BigIntegerImpl & other) {
+    DEFINE_BITWISE_WITH_OTHER(&);
+}
+
+void BigIntegerImpl::orAssign(std::int64_t i64) {
+    DEFINE_BITWISE_WITH_I64(|);
+}
+
+void BigIntegerImpl::orAssign(const BigIntegerImpl & other) {
+    DEFINE_BITWISE_WITH_OTHER(|);
+}
+
+void BigIntegerImpl::xorAssign(std::int64_t i64) {
+    DEFINE_BITWISE_WITH_I64(^);
+}
+
+void BigIntegerImpl::xorAssign(const BigIntegerImpl & other) {
+    DEFINE_BITWISE_WITH_OTHER(^);
+}
+
+void BigIntegerImpl::notSelf() {
+    m_mag.cloneData(); // COW
+    getU32(0); // cache
+
+    const SizeType len = m_mag.count() + 1;
+    m_mag.slice(0, len);
+    for (SizeType i = 0; i < len; ++i) {
+        m_mag[i] = ~getU32(i);
+    }
+    switch (m_mag[m_mag.count() - 1]) {
+    case 0 :
+        setFlagsToPositive(); // 正数
+        detail::eraseZerosSuffix(m_mag); // 去除前导零
+        if (m_mag.count() == 0) setFlagsToZero(); // 零
+        beginWrite(); // free-cache
+        return;
+    case 0xffffffff :
+        setFlagsToNegtaive(); // 负数
+        beginWrite(); // free-cache
+        detail::notPlusOne(m_mag, getFirstNonZeroU32Index()); // 补码转真值
+        detail::eraseZerosSuffix(m_mag); // 去除前导零
+        return;
+    default :
+        PGZXB_DEBUG_ASSERT_EX("Can Not Be Reached", false);
+    } 
+}
+
+// BigIntegerImpl's private-functions
+void BigIntegerImpl::beginWrite() {
+    // 擦除所有的懒求值标志
+    detail::eraseBits(m_flags, BNFlag::LAZY_CALCU_FLAGS);
+}
+
+SizeType BigIntegerImpl::getFirstNonZeroU32Index() const {
+
+    // 如果求过且没被修改过直接返回
+    if (flagsContains(BNFlag::FIRST_NZ_U32_INDEX_CALCUED))
+        return m_firstNotZeroU32IndexLazy;
+
+    // 重新求值并设置标志位
+    auto iter = std::find_if(m_mag.begin(), m_mag.end(), [] (std::uint32_t e) { return e != 0; });
+    
+    detail::setBits(m_flags, BNFlag::FIRST_NZ_U32_INDEX_CALCUED);
+    return m_firstNotZeroU32IndexLazy = (iter - m_mag.begin());
+}
+
+void BigIntegerImpl::setFlagsToPositive() {
+    detail::setBits(m_flags, BNFlag::POSITIVE);
+    detail::eraseBits(m_flags, BNFlag::NEGATIVE);
+    detail::eraseBits(m_flags, BNFlag::ZERO);
+}
+
+void BigIntegerImpl::setFlagsToNegtaive() {
+    detail::setBits(m_flags, BNFlag::NEGATIVE);
+    detail::eraseBits(m_flags, BNFlag::POSITIVE);
+    detail::eraseBits(m_flags, BNFlag::ZERO);
+}
+
+void BigIntegerImpl::setFlagsToZero() {
+    detail::setBits(m_flags, BNFlag::ZERO);
+    detail::eraseBits(m_flags, BNFlag::POSITIVE);
+    detail::eraseBits(m_flags, BNFlag::NEGATIVE);
+}
+
