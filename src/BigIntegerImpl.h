@@ -43,7 +43,7 @@ public:
     BigIntegerImpl & assign(const BigIntegerImpl & other); // Impl尽量提供简单的接口,
     BigIntegerImpl & assign(BigIntegerImpl && other);      // 尽量不以操作符的方式提供API
     BigIntegerImpl & assign(std::int64_t i);
-    // BigIntegerImpl & assign(const StringArg & str, Status * status = nullptr);
+    // BigIntegerImpl & assign(const StringArg & str, int radix = 10, Status * status = nullptr);
     // /* BigIntegerImpl & assign(const ExprTree & tree); */
     // BigIntegerImpl & assign(const StringArg & infixExpr, InfixExprMode mode, Status * status = nullptr);
    
@@ -59,12 +59,13 @@ public:
     // 获取从低位到高位从零开始数的补码形式的第n个32位
     std::uint32_t getU32(SizeType n) const;
 
-    // // 获取真值形式的字符串形式
-    // std::string toString(int radix) const;
+    // 获取真值形式的字符串形式
+    std::string toString(int radix) const;
+    // std::string toTwosComplmentString() const; [useless]
 
     // // 获取位数
-    // SizeType minimalBitNumber() const; // 二进制补码形式
-    // SizeType minimalMagBitNumber() const; // 绝对值二进制补码
+    // SizeType minimalBitNumber() const; // 二进制补码形式 [useless]
+    // SizeType minimalMagBitNumber() const; // 绝对值二进制补码 [useless]
     
     // // 拷贝mag的二进制位
     // SizeType copyMagDataTo(void * dest, SizeType maxlen) const; // 绝对值二进制
@@ -78,11 +79,11 @@ public:
     // void inc();
     // void dec();
 
-    // void addAssign(std::int64_t i64);
-    // void addAssign(const BigIntegerImpl & other);
+    void addAssign(std::int64_t i64);
+    void addAssign(const BigIntegerImpl & other);
     
-    // void subAssign(std::int64_t i64);
-    // void subAssign(const BigIntegerImpl & other);
+    void subAssign(std::int64_t i64);
+    void subAssign(const BigIntegerImpl & other);
     
     // void mulAssign(std::int64_t i64);
     // void mulAssign(const BigIntegerImpl & other);
@@ -109,11 +110,14 @@ public:
     // void shiftLeft(std::uint64_t u64);
     // void shiftRight(std::uint64_t u64);
 
-    // // compare
-    // int cmp(const BigIntegerImpl & other); // less : -1, equals : 0, more : +1
+    // negate
+    void negate();
+
+    // compare
+    int cmp(const BigIntegerImpl & other); // less : -1, equals : 0, more : +1
 
     // // inverse-bits inplace
-    // void inverse();
+    // void inverse(); [useless]
 
 private:
     // BigIntegerImpl(const Slice<std::uint32_t> & slice, int signum); // signum, 1 : posi, -1 : neg, 0 : zero
@@ -125,6 +129,9 @@ private:
     void setFlagsToPositive();
     void setFlagsToNegtaive();
     void setFlagsToZero();
+    bool hasSameSigFlag(const BigIntegerImpl & other) const;
+
+    void beZero();
 private:
     mutable Enum m_flags = BNFlag::INVALID; // flags : 约定: assign(除了copy)后flags只有符号标志位, 其他写操作或懒求值操作均是修改flags的位
     Slice<std::uint32_t> m_mag{}; // 绝对值二进制, 去除前导零(高位 | 大下标)

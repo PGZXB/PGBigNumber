@@ -122,6 +122,10 @@ public:
         return copy.slice(lo, hi);
     }
 
+    bool weakEquals(const Slice & other) const {
+        return m_data == other.m_data && m_lo == other.m_lo && m_hi == other.m_hi;
+    }
+
     T & operator[] (SizeType i) {
         return m_data->operator[](m_lo + i);
     }

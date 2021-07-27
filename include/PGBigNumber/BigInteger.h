@@ -51,7 +51,7 @@ public:
     // assign from other types
     BigInteger & operator= (std::int64_t i);
     BigInteger & assign(std::int64_t i);
-    BigInteger & assign(const StringArg & str, Status * status = nullptr);
+    BigInteger & assign(const StringArg & str, int radix = 10, Status * status = nullptr);
     /* BigInteger(const ExprTree & tree); */
     BigInteger & assign(const StringArg & infixExpr, InfixExprMode mode, Status * status = nullptr);
     BigInteger & assign(const void * bin, SizeType len, bool little = true); // from little endian 2's complement

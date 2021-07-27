@@ -64,6 +64,103 @@ static inline void notPlusOne(Slice<std::uint32_t> & s, SizeType firstNonZeroU32
     }
 }
 
+// 比较Slice表示的正数的大小, less : -1, equals : 0, more : 1
+static inline int cmpMag(const Slice<std::uint32_t> & a, const Slice<std::uint32_t> & b) {
+
+    const SizeType alen = a.count();
+    const SizeType blen = b.count();
+    
+    if (alen < blen) return -1;
+    if (alen > blen) return +1;
+    if (alen == 0) return 0;
+    
+    for (SizeType i = alen - 1; i < alen; ++i) {  // 从高位到低位比较
+        std::uint32_t aa = a[i];
+        std::uint32_t bb = b[i];
+
+        if (aa != bb) return aa < bb ? -1 : +1;  
+    }
+
+    return 0;
+}
+
+// 将两个Slice表示的正整数本地相加, 结果回存到a
+static inline void addMag(Slice<std::uint32_t> & a, const Slice<std::uint32_t> & b) {
+    const SizeType maxlen = std::max(a.count(), b.count());
+    const SizeType minlen = std::min(a.count(), b.count());
+
+    a.slice(0, maxlen);
+
+    constexpr std::uint64_t MASK = 0xffffffff;
+
+    std::uint64_t sum = 0;
+    SizeType i = 0;
+    for (; i < minlen; ++i) {
+        sum = (MASK & a[i]) + (MASK & b[i]) + (sum >> 32);
+        a[i] = sum;
+    }
+    std::cout << std::dec;
+    const Slice<std::uint32_t> * temp = (maxlen == a.count()) ? &a : &b;
+
+    bool carry = ((sum >> 32) != 0);
+    while (i < maxlen && carry) {
+        a[i] = (*temp)[i] + 1;
+        carry = (a[i] == 0);
+        ++i;
+    }
+
+    if (carry) a.append(0x1);
+    else if (temp != &a) std::memcpy(&a[i], &(*temp)[i], maxlen - i);
+}
+
+// 将两个Slice表示的正整数作差, 要求a > b, 结果将回存到a
+static inline void subMag(Slice<std::uint32_t> & a, const Slice<std::uint32_t> & b) {
+    PGZXB_DEBUG_ASSERT_EX("the len of a must be less than b's", a.count() <= b.count());
+    const SizeType maxlen = a.count();
+    const SizeType minlen = b.count();
+
+    constexpr std::int64_t MASK = 0xffffffff;
+    std::int64_t diff = 0;
+    SizeType i = 0;
+    for (; i < minlen; ++i) {
+        PGZXB_DEBUG_ASSERT((diff >> 32) == 0 || (diff >> 32) == -1);
+        diff =  (MASK & a[i]) - (MASK & b[i]) + (diff >> 32);
+        a[i] = diff;
+    }
+
+    bool borrow = ((diff >> 32) != 0);
+    while (i < maxlen && borrow)
+        borrow = (--a[i++] == 0xffffffff);
+}
+
+// u32 -> string, 字符串是逆的, refer to http://www.strudel.org.uk/itoa/
+static inline std::string u32toa_reversed(std::uint32_t value, int base) {
+ 
+    std::string buf;
+
+    // check that the base if valid
+    if (base < 2 || base > 16) return buf;
+
+    enum { kMaxDigits = 35 };
+    buf.reserve( kMaxDigits ); // Pre-allocate enough space.
+
+    std::uint32_t quotient = value;
+
+    // Translating number to string with base:
+    do {
+        buf += "0123456789abcdef"[ quotient % base ];
+        quotient /= base;
+    } while ( quotient );
+
+    // std::reverse( buf.begin(), buf.end() );
+    return buf;
+}
+
+// 快速判断整数n是否为2的幂
+static inline bool isPow2(std::uint64_t n) {
+    return (n & (n - 1)) == 0;
+}
+
 }
 PGBN_NAMESPACE_END
 
@@ -269,12 +366,137 @@ std::uint32_t BigIntegerImpl::getU32(SizeType n) const {
     else return -magInt;
 }
 
+std::string BigIntegerImpl::toString(int radix) const {
+    PGZXB_DEBUG_ASSERT_EX("radix must between 2 and 16", radix >= 2 && radix <= 16); // 暂时只支持2到16进制
+
+    if (flagsContains(BNFlag::ZERO)) return "0";
+
+    std::string res;
+
+    if (detail::isPow2(radix)) {
+        if (radix == 8) {
+            PGZXB_DEBUG_ASSERT_EX("Not Be Implemented!!", false);
+        }
+
+        std::uint32_t u32BitNumBaseRadixWhichIsPow2;
+        const SizeType lenMinu1 = m_mag.count() - 1;
+        switch (radix) {
+        case 2 :
+            u32BitNumBaseRadixWhichIsPow2 = 32; break;
+        case 4 :
+            u32BitNumBaseRadixWhichIsPow2 = 16; break;
+        case 16 :
+            u32BitNumBaseRadixWhichIsPow2 = 8; break;
+        default :
+            PGZXB_DEBUG_ASSERT_EX("Cannot Be Reached", false);
+        }
+        for (SizeType i = 0; i < lenMinu1; ++i) {
+            auto temp = detail::u32toa_reversed(m_mag[i], radix);
+            res.append(temp)
+               .append(u32BitNumBaseRadixWhichIsPow2 - temp.size(), '0');
+        }
+        res.append(detail::u32toa_reversed(m_mag[lenMinu1], radix));
+        if (flagsContains(BNFlag::NEGATIVE)) res.push_back('-');
+        std::reverse(res.begin(), res.end());
+
+        return res;
+    } else {
+        PGZXB_DEBUG_ASSERT_EX("Not Be Implemented!!", false);
+    }
+
+    return res;
+}
+
 bool BigIntegerImpl::flagsContains(BNFLAG Enum flags) const {
     return (m_flags & flags) == flags;
 }
 
 bool BigIntegerImpl::flagsEquals(BNFLAG Enum flags) const {
     return m_flags == flags;
+}
+
+void BigIntegerImpl::addAssign(std::int64_t i64) {
+    BigIntegerImpl temp(i64);
+
+    addAssign(temp);
+}
+
+void BigIntegerImpl::addAssign(const BigIntegerImpl & other) {
+    if (other.flagsContains(BNFlag::ZERO)) return;
+    if (flagsContains(BNFlag::ZERO)) { assign(other); return; }
+
+    beginWrite(); // 清除缓存
+
+    if (hasSameSigFlag(other)) {
+        m_mag.cloneData();
+        detail::addMag(m_mag, other.m_mag);
+        return;
+    }
+
+    int cmp = detail::cmpMag(m_mag, other.m_mag);
+
+    if (cmp == 0) { beZero(); return; }
+
+    if (cmp > 0) {
+        m_mag.cloneData();
+        detail::subMag(m_mag, other.m_mag);
+    } else {
+        Slice<std::uint32_t> copy = other.m_mag;
+        copy.cloneData();
+        detail::subMag(copy, m_mag);
+        m_mag = copy;
+    }
+
+    detail::eraseZerosSuffix(m_mag);
+    
+    int sigNum = flagsContains(BNFlag::POSITIVE) ? +1 : (flagsContains(BNFlag::ZERO) ? 0 : -1);
+    if (sigNum == cmp) setFlagsToPositive();
+    else setFlagsToNegtaive();
+}
+    
+void BigIntegerImpl::subAssign(std::int64_t i64) {
+    BigIntegerImpl temp(i64);
+
+    subAssign(temp);
+}
+
+void BigIntegerImpl::subAssign(const BigIntegerImpl & other) {
+    if (other.flagsContains(BNFlag::ZERO)) return;
+    if (flagsContains(BNFlag::ZERO)) {
+        assign(other).negate();
+        return;
+    }
+
+    if (this == &other) { beZero(); return; }
+    if (hasSameSigFlag(other) && m_mag.weakEquals(other.m_mag)) { beZero(); return; }
+
+    beginWrite();
+
+    if (!hasSameSigFlag(other)) {
+        m_mag.cloneData();
+        detail::addMag(m_mag, other.m_mag);
+        return;
+    }
+
+    int cmp = detail::cmpMag(m_mag, other.m_mag);
+
+    if (cmp == 0) { beZero(); return; }
+
+    if (cmp > 0) {
+        m_mag.cloneData();
+        detail::subMag(m_mag, other.m_mag);
+    } else {
+        Slice<std::uint32_t> copy = other.m_mag;
+        copy.cloneData();
+        detail::subMag(copy, m_mag);
+        m_mag = copy;
+    }
+
+    detail::eraseZerosSuffix(m_mag);
+    
+    int sigNum = flagsContains(BNFlag::POSITIVE) ? +1 : (flagsContains(BNFlag::ZERO) ? 0 : -1);
+    if (sigNum == cmp) setFlagsToPositive();
+    else setFlagsToNegtaive();
 }
 
 #define DEFINE_BITWISE(operator, otherlen, getU32Index) \
@@ -360,6 +582,35 @@ void BigIntegerImpl::notSelf() {
     } 
 }
 
+void BigIntegerImpl::negate() {
+    if (flagsContains(BNFlag::ZERO)) return;
+    constexpr Enum POSI_NEG = BNFlag::POSITIVE | BNFlag::NEGATIVE;
+
+    beginWrite(); // 清除缓存
+
+    m_flags ^= POSI_NEG;
+}
+
+int BigIntegerImpl::cmp(const BigIntegerImpl & other) {
+    // less : -1, equals : 0, more : +1
+
+    int selfSignum = flagsContains(BNFlag::POSITIVE) ? +1 : (flagsContains(BNFlag::ZERO) ? 0 : -1);
+    int otherSignum = other.flagsContains(BNFlag::POSITIVE) ? +1 : (other.flagsContains(BNFlag::ZERO) ? 0 : -1);
+
+    if (selfSignum < otherSignum) return -1; // 负 < 零/正, 零 < 正
+    if (selfSignum > otherSignum) return +1; // 正 > 零/负, 零 > 负
+    if (selfSignum == 0) return 0; // 零 == 零
+
+    if (m_mag.weakEquals(other.m_mag)) return 0; // 底层mag数组相同
+
+    int magCmp = detail::cmpMag(m_mag, other.m_mag);
+
+    if (magCmp == 0) return 0; // 强相同
+
+    // 正数, 绝对值越小越小; 负数, 绝对值越大值越小
+    return selfSignum == 1 ? magCmp : -magCmp;
+}
+
 // BigIntegerImpl's private-functions
 void BigIntegerImpl::beginWrite() {
     // 擦除所有的懒求值标志
@@ -395,5 +646,17 @@ void BigIntegerImpl::setFlagsToZero() {
     detail::setBits(m_flags, BNFlag::ZERO);
     detail::eraseBits(m_flags, BNFlag::POSITIVE);
     detail::eraseBits(m_flags, BNFlag::NEGATIVE);
+}
+
+bool BigIntegerImpl::hasSameSigFlag(const BigIntegerImpl & other) const {
+    constexpr Enum SIGNUM_BITS = BNFlag::ZERO | BNFlag::POSITIVE | BNFlag::NEGATIVE;
+
+    return (SIGNUM_BITS | m_flags) == (SIGNUM_BITS | other.m_flags);
+}
+
+void BigIntegerImpl::beZero() {
+    m_mag = Slice<std::uint32_t>();
+    m_flags = BNFlag::ZERO;
+    m_firstNotZeroU32IndexLazy = 0;
 }
 
