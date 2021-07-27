@@ -74,11 +74,12 @@ static inline int cmpMag(const Slice<std::uint32_t> & a, const Slice<std::uint32
     if (alen > blen) return +1;
     if (alen == 0) return 0;
     
-    for (SizeType i = alen - 1; i < alen; ++i) {  // 从高位到低位比较
+    for (SizeType i = alen - 1; ; --i) {  // 从高位到低位比较
         std::uint32_t aa = a[i];
         std::uint32_t bb = b[i];
 
-        if (aa != bb) return aa < bb ? -1 : +1;  
+        if (aa != bb) return aa < bb ? -1 : +1;
+        if (i == 0) break;
     }
 
     return 0;
@@ -88,6 +89,8 @@ static inline int cmpMag(const Slice<std::uint32_t> & a, const Slice<std::uint32
 static inline void addMag(Slice<std::uint32_t> & a, const Slice<std::uint32_t> & b) {
     const SizeType maxlen = std::max(a.count(), b.count());
     const SizeType minlen = std::min(a.count(), b.count());
+
+    const Slice<std::uint32_t> * temp = (maxlen == a.count()) ? &a : &b;
 
     a.slice(0, maxlen);
 
@@ -99,8 +102,6 @@ static inline void addMag(Slice<std::uint32_t> & a, const Slice<std::uint32_t> &
         sum = (MASK & a[i]) + (MASK & b[i]) + (sum >> 32);
         a[i] = sum;
     }
-    std::cout << std::dec;
-    const Slice<std::uint32_t> * temp = (maxlen == a.count()) ? &a : &b;
 
     bool carry = ((sum >> 32) != 0);
     while (i < maxlen && carry) {
@@ -110,12 +111,12 @@ static inline void addMag(Slice<std::uint32_t> & a, const Slice<std::uint32_t> &
     }
 
     if (carry) a.append(0x1);
-    else if (temp != &a) std::memcpy(&a[i], &(*temp)[i], maxlen - i);
+    else if (temp != &a) std::memcpy(&a[i], &(*temp)[i], (maxlen - i) * 4);
 }
 
 // 将两个Slice表示的正整数作差, 要求a > b, 结果将回存到a
 static inline void subMag(Slice<std::uint32_t> & a, const Slice<std::uint32_t> & b) {
-    PGZXB_DEBUG_ASSERT_EX("the len of a must be less than b's", a.count() <= b.count());
+    PGZXB_DEBUG_ASSERT_EX("the len of a must be more than b's", a.count() >= b.count());
     const SizeType maxlen = a.count();
     const SizeType minlen = b.count();
 
@@ -651,7 +652,7 @@ void BigIntegerImpl::setFlagsToZero() {
 bool BigIntegerImpl::hasSameSigFlag(const BigIntegerImpl & other) const {
     constexpr Enum SIGNUM_BITS = BNFlag::ZERO | BNFlag::POSITIVE | BNFlag::NEGATIVE;
 
-    return (SIGNUM_BITS | m_flags) == (SIGNUM_BITS | other.m_flags);
+    return (SIGNUM_BITS & m_flags) == (SIGNUM_BITS & other.m_flags);
 }
 
 void BigIntegerImpl::beZero() {
