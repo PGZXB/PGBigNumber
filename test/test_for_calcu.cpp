@@ -261,7 +261,7 @@ int main (int argc, char * argv[]) {
         std::cout << "Update Examples-file Successfully\n";
         
         std::cout << "Generating Python Code\n";
-        std::string python_code = pgfmt::format(format, log_file, (std::int64_t)temp.size(), temp, buffer);
+        std::string python_code = pgfmt::format(format, log_file, temp.size(), temp, buffer);
         std::ofstream pfile(python_filename);
         pfile << python_code;
         std::cout << "Generate Python Code Successfully\n";

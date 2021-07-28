@@ -36,6 +36,7 @@
 #include <type_traits>
 #include <iterator>
 #include <memory>
+#include <cinttypes>
 
 #include <typeinfo>
 
@@ -63,42 +64,62 @@ namespace pg::util::stringUtil::__IN_fmtUtil {
     std::enable_if_t<!has_iterator<_Type>::value, std::string> transToString(const _Type& ele, const std::string &);
 
     // function-definitions
-    inline std::string transToString(const int & ele, const std::string & limit) {
-        char buf[20] = { 0 };
-        char fmt[10] = { 0 };
-        sprintf(fmt, "%%%sd", limit.c_str());
-        int len = sprintf(buf, fmt, ele);
-        return std::string().assign(buf, len);
-    }
-
     inline std::string transToString(const bool & ele, const std::string &) {
         return ele ? "true" : "false";
     }
 
-    inline std::string transToString(const char& ele, const std::string &) {
+    inline std::string transToString(const char & ele, const std::string &) {
         return std::string() + ele;
     }
 
-    inline std::string transToString(const short & ele, const std::string & limit) {
+    inline std::string transToString(const std::int16_t & ele, const std::string & limit) {
         char buf[20] = { 0 };
         char fmt[10] = { 0 };
-        sprintf(fmt, "%%%shd", limit.c_str());
+        sprintf(fmt, "%%%s" PRId16 "", limit.c_str());
         int len = sprintf(buf, fmt, ele);
         return std::string().assign(buf, len);
     }
 
-    inline std::string transToString(const long & ele, const std::string & limit) {
-        char buf[40] = { 0 };
-        char fmt[20] = { 0 };
-        sprintf(fmt, "%%%sld", limit.c_str());
+    inline std::string transToString(const std::uint16_t & ele, const std::string & limit) {
+        char buf[20] = { 0 };
+        char fmt[10] = { 0 };
+        sprintf(fmt, "%%%s" PRIu16 "", limit.c_str());
         int len = sprintf(buf, fmt, ele);
         return std::string().assign(buf, len);
     }
 
-    inline std::string transToString(const long long & ele, const std::string & limit) {
+    inline std::string transToString(const std::uint8_t & ele, const std::string &) {
+        return transToString(static_cast<std::uint16_t>(ele), "");
+    }
+
+    inline std::string transToString(const std::int32_t & ele, const std::string & limit) {
+        char buf[20] = { 0 };
+        char fmt[10] = { 0 };
+        sprintf(fmt, "%%%s" PRId32 "", limit.c_str());
+        int len = sprintf(buf, fmt, ele);
+        return std::string().assign(buf, len);
+    }
+
+    inline std::string transToString(const std::uint32_t & ele, const std::string & limit) {
+        char buf[20] = { 0 };
+        char fmt[10] = { 0 };
+        sprintf(fmt, "%%%s" PRIu32 "", limit.c_str());
+        int len = sprintf(buf, fmt, ele);
+        return std::string().assign(buf, len);
+    }
+
+    inline std::string transToString(const std::int64_t & ele, const std::string & limit) {
         char buf[40] = { 0 };
         char fmt[20] = { 0 };
-        sprintf(fmt, "%%%slld", limit.c_str());
+        sprintf(fmt, "%%%s" PRId64 "", limit.c_str());
+        int len = sprintf(buf, fmt, ele);
+        return std::string().assign(buf, len);
+    }
+
+    inline std::string transToString(const std::uint64_t & ele, const std::string & limit) {
+        char buf[40] = { 0 };
+        char fmt[20] = { 0 };
+        sprintf(fmt, "%%%s" PRIu64 "", limit.c_str());
         int len = sprintf(buf, fmt, ele);
         return std::string().assign(buf, len);
     }
