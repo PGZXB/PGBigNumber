@@ -134,6 +134,56 @@ static inline void subMag(Slice<std::uint32_t> & a, const Slice<std::uint32_t> &
         borrow = (--a[i++] == 0xffffffff);
 }
 
+// Slice与u32相乘, 本地算法
+static inline void gradSchoolMulInplace(Slice<std::uint32_t> & a, std::uint32_t b) {
+    const SizeType alen = a.count();
+    PGZXB_DEBUG_ASSERT_EX("the size of a must be more than 0", alen > 0);
+
+    constexpr std::uint64_t MASK = 0xffffffff;
+
+    a.slice(0, alen);
+
+    const std::uint64_t B = MASK & b;
+
+    std::uint64_t carry = 0;
+    for (SizeType i = 0; i < alen; ++i) {
+        std::uint64_t temp = (MASK & a[i]) * B + carry;
+        a[i] = temp;
+        carry = (temp >> 32);    
+    }
+
+    if (carry != 0) a.append(carry);
+}
+
+// 两个Slice表示的正整数利用小学生算法相乘, a * b, 结果被返回
+static inline Slice<std::uint32_t> gradeSchoolMul(
+    const Slice<std::uint32_t> & a, const Slice<std::uint32_t> & b
+) {
+    const SizeType alen = a.count();
+    const SizeType blen = b.count();
+    PGZXB_DEBUG_ASSERT_EX("the size of a must be more than 0", alen > 0);
+    PGZXB_DEBUG_ASSERT_EX("the size of b must be more than 0 too", blen > 0);
+
+    constexpr std::uint64_t MASK = 0xffffffff;
+
+    const SizeType rlen = alen + blen;
+    Slice<std::uint32_t> result;
+    result.slice(0, rlen);
+
+    std::uint64_t carry = 0;
+    for (SizeType i = 0; i < alen; ++i) {
+        carry = 0;
+        for (SizeType j = 0, k = i; j < blen; ++j, ++k) {
+            std::uint64_t temp = (MASK & a[i]) * (MASK & b[j]) + (MASK & result[k]) + carry;
+            result[k] = temp;
+            carry = (temp >> 32);
+        }
+        result[i + blen] = carry;
+    }
+
+    return result;
+}
+
 // u32 -> string, 字符串是逆的, refer to http://www.strudel.org.uk/itoa/
 static inline std::string u32toa_reversed(std::uint32_t value, int base) {
  
@@ -416,6 +466,22 @@ bool BigIntegerImpl::flagsEquals(BNFLAG Enum flags) const {
     return m_flags == flags;
 }
 
+bool BigIntegerImpl::isOne() const {
+    if (flagsContains(BNFlag::POSITIVE) && m_mag.count() == 1) {
+        return m_mag[0] == 0x1;
+    }
+
+    return false;
+}
+
+bool BigIntegerImpl::isNegOne() const {
+    if (flagsContains(BNFlag::NEGATIVE) && m_mag.count() == 1) {
+        return m_mag[0] == 0x1;
+    }
+
+    return false;
+}
+
 void BigIntegerImpl::addAssign(std::int64_t i64) {
     BigIntegerImpl temp(i64);
 
@@ -452,7 +518,7 @@ void BigIntegerImpl::addAssign(const BigIntegerImpl & other) {
     
     int sigNum = flagsContains(BNFlag::POSITIVE) ? +1 : (flagsContains(BNFlag::ZERO) ? 0 : -1);
     if (sigNum == cmp) setFlagsToPositive();
-    else setFlagsToNegtaive();
+    else setFlagsToNegative();
 }
     
 void BigIntegerImpl::subAssign(std::int64_t i64) {
@@ -497,7 +563,45 @@ void BigIntegerImpl::subAssign(const BigIntegerImpl & other) {
     
     int sigNum = flagsContains(BNFlag::POSITIVE) ? +1 : (flagsContains(BNFlag::ZERO) ? 0 : -1);
     if (sigNum == cmp) setFlagsToPositive();
-    else setFlagsToNegtaive();
+    else setFlagsToNegative();
+}
+
+void BigIntegerImpl::mulAssign(const BigIntegerImpl & other) {
+    if (flagsContains(BNFlag::ZERO) || other.flagsContains(BNFlag::ZERO)) { beZero(); return; }
+    if (other.isOne()) return; // a * 1 == a
+    if (other.isNegOne()) { negate(); return; } // a * -1 == -a
+    if (isOne()) { assign(other); return; } // 1 * a == a
+    if (isOne()) { assign(other).negate(); return; } // -1 * a == -a
+
+    // free-cache
+    beginWrite();
+
+    // 设置符号位
+    if (hasSameSigFlag(other)) setFlagsToPositive();
+    else setFlagsToNegative();
+
+    // 规模较小直接采用小学生算法
+    if (true) {
+        if (other.m_mag.count() == 1) {
+            m_mag.cloneData();
+            detail::gradSchoolMulInplace(m_mag, other.m_mag[0]);
+            return;
+        }
+        if (m_mag.count() == 1) {
+            std::uint32_t temp = m_mag[0];
+            m_mag = other.m_mag;
+            m_mag.cloneData();
+            detail::gradSchoolMulInplace(m_mag, temp);
+            return;
+        }
+
+        m_mag = detail::gradeSchoolMul(m_mag, other.m_mag);
+        detail::eraseZerosSuffix(m_mag); // 去除前导零
+        return;
+    }
+    // 规模中等采用Karatsuba算法
+
+    // 规模再大采用Toom Cook-3算法
 }
 
 #define DEFINE_BITWISE(operator, otherlen, getU32Index) \
@@ -516,7 +620,7 @@ void BigIntegerImpl::subAssign(const BigIntegerImpl & other) {
         beginWrite(); \
         return; \
     case 0xffffffff : \
-        setFlagsToNegtaive(); \
+        setFlagsToNegative(); \
         beginWrite(); \
         detail::notPlusOne(m_mag, getFirstNonZeroU32Index()); \
         detail::eraseZerosSuffix(m_mag); \
@@ -573,7 +677,7 @@ void BigIntegerImpl::notSelf() {
         beginWrite(); // free-cache
         return;
     case 0xffffffff :
-        setFlagsToNegtaive(); // 负数
+        setFlagsToNegative(); // 负数
         beginWrite(); // free-cache
         detail::notPlusOne(m_mag, getFirstNonZeroU32Index()); // 补码转真值
         detail::eraseZerosSuffix(m_mag); // 去除前导零
@@ -637,7 +741,7 @@ void BigIntegerImpl::setFlagsToPositive() {
     detail::eraseBits(m_flags, BNFlag::ZERO);
 }
 
-void BigIntegerImpl::setFlagsToNegtaive() {
+void BigIntegerImpl::setFlagsToNegative() {
     detail::setBits(m_flags, BNFlag::NEGATIVE);
     detail::eraseBits(m_flags, BNFlag::POSITIVE);
     detail::eraseBits(m_flags, BNFlag::ZERO);

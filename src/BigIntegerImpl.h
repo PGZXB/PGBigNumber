@@ -75,6 +75,12 @@ public:
     bool flagsContains(BNFLAG Enum flags) const;
     bool flagsEquals(BNFLAG Enum flags) const;
 
+    // isOne
+    bool isOne() const;
+
+    // isNegOne
+    bool isNegOne() const;
+
     // // 运算, 均为本地算法
     // void inc();
     // void dec();
@@ -86,7 +92,7 @@ public:
     void subAssign(const BigIntegerImpl & other);
     
     // void mulAssign(std::int64_t i64);
-    // void mulAssign(const BigIntegerImpl & other);
+    void mulAssign(const BigIntegerImpl & other);
     
     // void divAssign(std::int64_t i64);
     // void divAssign(const BigIntegerImpl & other);
@@ -127,7 +133,7 @@ private:
     SizeType getFirstNonZeroU32Index() const;
 
     void setFlagsToPositive();
-    void setFlagsToNegtaive();
+    void setFlagsToNegative();
     void setFlagsToZero();
     bool hasSameSigFlag(const BigIntegerImpl & other) const;
 

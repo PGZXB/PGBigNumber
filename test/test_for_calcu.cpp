@@ -124,24 +124,33 @@ std::vector<std::string> generateExamples(std::size_t randSeed, std::size_t n, s
     }
 
     std::uniform_int_distribution<std::size_t> gPair(0, n - 1);
-    std::bernoulli_distribution gAddOrSub(0.5);
+
+#define DEFINE_BINARY_OPERATION(op, opN) \
+    [&numbers, &eng, &gPair, &res] () { \
+        auto & a = numbers[gPair(eng)]; \
+        auto & b = numbers[gPair(eng)]; \
+        pgbn::BigIntegerImpl copy(a.b); \
+        copy.opN##Assign(b.b); \
+        res.emplace_back(a.s) \
+            .append(" " op " ") \
+            .append(b.s) \
+            .append(" == ") \
+            .append(strToPythonHex(copy.toString(16))); \
+    }
+
+    std::function<void()> operations[] = {
+        DEFINE_BINARY_OPERATION("+", add),
+        DEFINE_BINARY_OPERATION("-", sub),
+        DEFINE_BINARY_OPERATION("*", mul),
+        // DEFINE_BINARY_OPERATION("/", div),
+    };
+    const std::size_t opNum = sizeof(operations) / sizeof(*operations);
+
+    std::uniform_int_distribution<std::size_t> gOp(0, opNum - 1);
 
     // 随机构造m个计算
     for (std::size_t i = 0; i < m; ++i) {
-        // 随机指定两个整数
-        auto & a = numbers[gPair(eng)];
-        auto & b = numbers[gPair(eng)];
-        pgbn::BigIntegerImpl copy(a.b);
-        // 随机加减
-        bool isAdd = gAddOrSub(eng);
-        if (isAdd) copy.addAssign(b.b);
-        else copy.subAssign(b.b);
-        // 存入结果
-        res.emplace_back(a.s)
-           .append(isAdd ? " + " : " - ")
-           .append(b.s)
-           .append(" == ")
-           .append(strToPythonHex(copy.toString(16)));
+        operations[gOp(eng)]();
     }
 
     return res;
