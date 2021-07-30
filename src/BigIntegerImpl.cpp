@@ -111,7 +111,7 @@ static inline void addMag(Slice<std::uint32_t> & a, const Slice<std::uint32_t> &
     }
 
     if (carry) a.append(0x1);
-    else if (temp != &a) std::memcpy(&a[i], &(*temp)[i], (maxlen - i) * 4);
+    else if (i < maxlen && temp != &a) std::memcpy(&a[i], &(*temp)[i], (maxlen - i) * 4);
 }
 
 // 将两个Slice表示的正整数作差, 要求a > b, 结果将回存到a
@@ -182,6 +182,80 @@ static inline Slice<std::uint32_t> gradeSchoolMul(
     }
 
     return result;
+}
+
+// 将Slice表示的整数逻辑左移, 位不够则扩展, 本地算法
+static inline void shlMag(Slice<std::uint32_t> & a, std::uint64_t n) {  // FIXME : can be better
+    PGZXB_DEBUG_ASSERT_EX("the size of a must be more than 0", a.count() > 0);
+    const SizeType nU32s = n / 32;
+    const SizeType nBits = n & 0x1f; // n % 32
+
+    if (nBits == 0) {
+        PGZXB_DEBUG_ASSERT(n == nU32s * 32);
+        a.preExtend(nU32s);
+    } else {
+        const SizeType nLastBits = 32 - nBits;
+        const std::uint32_t temp = a[a.count() - 1] >> nLastBits;
+        SizeType i;
+        if (temp == 0) {
+            a.slice(0, a.count() + nU32s);
+            i = a.count() - 1;
+        } else {
+            a.slice(0, a.count() + nU32s + 1);
+            a[a.count() - 1] = temp;
+            i = a.count() - 2;
+        }
+        for (; i > nU32s; --i) {
+            a[i] = (a[i - nU32s] << nBits) | (a[i - nU32s - 1] >> nLastBits);
+        }
+        a[i] = a[0] << nBits;
+        std::fill_n(a.begin(), nU32s, 0); // 低位补零
+    }
+}
+
+// 将Slice表示的整数逻辑右移, 位不够则扩展, 本地算法
+static inline void shrMag(Slice<std::uint32_t> & a, std::uint64_t n) {
+    PGZXB_DEBUG_ASSERT_EX("the size of a must be more than 0", a.count() > 0);
+    const SizeType nU32s = n / 32;
+    const SizeType nBits = n & 0x1f; // n % 32
+
+    if (nU32s < a.count()) a.slice(nU32s, a.count());
+    else { a.slice(0, 0); return; }
+
+    if (nBits == 0) {
+        PGZXB_DEBUG_ASSERT(n == nU32s * 32);
+        return;
+    } else {
+        const SizeType nLastBits = 32 - nBits;
+        const SizeType lMinu1 = a.count() - 1;
+        SizeType i = 0;
+        for (; i < lMinu1; ++i) {
+            a[i] >>= nBits;
+            a[i] |= (a[i + 1] << nLastBits);
+        }
+        const std::uint32_t temp = a[i] >> nBits;
+        if (temp == 0) a.slice(0, a.count() - 1); // 去除前导零
+        else {
+            a[i] = temp;
+        }
+    }
+}
+
+// 将Slice表示的正整数自增
+static inline void inc(Slice<std::uint32_t> & a) {
+    PGZXB_DEBUG_ASSERT_EX("the size of a must be more than 0", a.count() > 0);
+
+    const SizeType alen = a.count();
+    SizeType i = 0;
+    bool carry = true;
+    while (i < alen && carry) {
+        carry = (++a[i] == 0);
+        ++i;
+    }
+    if (carry) {
+        PGZXB_DEBUG_ASSERT(a[a.count() - 1] == 0);
+        a.append(0x1);
+    }
 }
 
 // u32 -> string, 字符串是逆的, refer to http://www.strudel.org.uk/itoa/
@@ -687,6 +761,62 @@ void BigIntegerImpl::notSelf() {
     } 
 }
 
+void BigIntegerImpl::shiftLeftAssign(std::uint64_t u64) {
+    if (flagsContains(BNFlag::ZERO)) return;
+
+    if (u64 > 0) {
+        beginWrite(); // free-cache // FIXME : can be better
+        m_mag.cloneData(); // clone-data
+        detail::shlMag(m_mag, u64);
+        return;
+    }
+}
+
+void BigIntegerImpl::shiftRightAssign(std::uint64_t u64) {
+    if (flagsContains(BNFlag::ZERO)) return;
+
+    if (u64 > 0) {
+        if (u64 / 32ULL >= m_mag.count()) {
+            if (flagsContains(BNFlag::NEGATIVE)) beNegOne();
+            else beZero();
+            return;
+        }
+
+        bool lostOne = false;
+        if (flagsContains(BNFlag::NEGATIVE)) {
+            // if (flagsContains(BNFlag::FIRST_NZ_U32_INDEX_CALCUED)) {
+            //     SizeType willBeLowestIndex = u64 / 32ULL;
+            //     auto fnzi = getFirstNonZeroU32Index();
+            //     if (fnzi < willBeLowestIndex) lostOne = true;
+            //     else if (fnzi > willBeLowestIndex) lostOne = false;
+            //     else lostOne = ( m_mag[fnzi] << (32ULL - (u64 & 0x1f)) ) != 0;
+            // } else {
+            if (true) {
+                SizeType i = 0;
+                lostOne = false;
+                for (const SizeType nU32 = u64 / 32ULL; i < nU32 && !lostOne; ++i)
+                    lostOne = ( m_mag[i] != 0 );
+                if (!lostOne && (u64 & 0x1f) != 0)
+                    lostOne = ( (m_mag[i] << (32ULL - (u64 & 0x1f))) != 0 );
+            }
+        }
+
+        beginWrite(); // free-cache // FIXME : can be better
+        m_mag.cloneData(); // clone-data
+
+        detail::shrMag(m_mag, u64);
+
+        if (m_mag.count() == 0) {
+            if (flagsContains(BNFlag::NEGATIVE)) {
+                if (lostOne) beNegOne();
+                else beZero();
+            } else beZero();
+        } else if (lostOne) detail::inc(m_mag);
+
+        return;
+    }
+}
+
 void BigIntegerImpl::negate() {
     if (flagsContains(BNFlag::ZERO)) return;
     constexpr Enum POSI_NEG = BNFlag::POSITIVE | BNFlag::NEGATIVE;
@@ -696,7 +826,7 @@ void BigIntegerImpl::negate() {
     m_flags ^= POSI_NEG;
 }
 
-int BigIntegerImpl::cmp(const BigIntegerImpl & other) {
+int BigIntegerImpl::cmp(const BigIntegerImpl & other) const {
     // less : -1, equals : 0, more : +1
 
     int selfSignum = flagsContains(BNFlag::POSITIVE) ? +1 : (flagsContains(BNFlag::ZERO) ? 0 : -1);
@@ -765,3 +895,10 @@ void BigIntegerImpl::beZero() {
     m_firstNotZeroU32IndexLazy = 0;
 }
 
+void BigIntegerImpl::beNegOne() {
+    m_mag = Slice<std::uint32_t>();
+    m_flags = BNFlag::NEGATIVE;
+    m_mag.append(0x1);
+    m_firstNotZeroU32IndexLazy = 1;
+    detail::setBits(m_flags, BNFlag::FIRST_NZ_U32_INDEX_CALCUED);
+}

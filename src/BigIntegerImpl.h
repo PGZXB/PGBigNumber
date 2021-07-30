@@ -112,15 +112,18 @@ public:
 
     void notSelf();
 
-    // // 移位, 按照C++的标准, 正数逻辑移位, 负数算术移位
-    // void shiftLeft(std::uint64_t u64);
-    // void shiftRight(std::uint64_t u64);
+    // 移位, 按照C++的标准, 正数逻辑移位, 负数算术移位(其实就都是算术移位)
+    void shiftLeftAssign(std::uint64_t u64);
+    void shiftRightAssign(std::uint64_t u64);
 
     // negate
     void negate();
 
+    // // abs
+    // void abs();
+
     // compare
-    int cmp(const BigIntegerImpl & other); // less : -1, equals : 0, more : +1
+    int cmp(const BigIntegerImpl & other) const; // less : -1, equals : 0, more : +1
 
     // // inverse-bits inplace
     // void inverse(); [useless]
@@ -138,6 +141,7 @@ private:
     bool hasSameSigFlag(const BigIntegerImpl & other) const;
 
     void beZero();
+    void beNegOne();
 private:
     mutable Enum m_flags = BNFlag::INVALID; // flags : 约定: assign(除了copy)后flags只有符号标志位, 其他写操作或懒求值操作均是修改flags的位
     Slice<std::uint32_t> m_mag{}; // 绝对值二进制, 去除前导零(高位 | 大下标)

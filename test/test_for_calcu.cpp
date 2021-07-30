@@ -124,8 +124,9 @@ std::vector<std::string> generateExamples(std::size_t randSeed, std::size_t n, s
     }
 
     std::uniform_int_distribution<std::size_t> gPair(0, n - 1);
+    std::uniform_int_distribution<std::uint64_t> gU64(0, 10000);
 
-#define DEFINE_BINARY_OPERATION(op, opN) \
+#define DEFINE_RAND_GEN_BINARY_OPERATION(op, opN) \
     [&numbers, &eng, &gPair, &res] () { \
         auto & a = numbers[gPair(eng)]; \
         auto & b = numbers[gPair(eng)]; \
@@ -137,12 +138,25 @@ std::vector<std::string> generateExamples(std::size_t randSeed, std::size_t n, s
             .append(" == ") \
             .append(strToPythonHex(copy.toString(16))); \
     }
-
+#define DEFINE_RAND_GEN_SHIFT_OPERATION(op, opN) \
+    [&numbers, &eng, &gPair, &gU64, &res] () { \
+        auto & a = numbers[gPair(eng)]; \
+        auto u64 = gU64(eng); \
+        pgbn::BigIntegerImpl copy(a.b); \
+        copy.opN##Assign(u64); \
+        res.emplace_back(a.s) \
+            .append(" " op " ") \
+            .append(std::to_string(u64)) \
+            .append(" == ") \
+            .append(strToPythonHex(copy.toString(16))); \
+    }
     std::function<void()> operations[] = {
-        DEFINE_BINARY_OPERATION("+", add),
-        DEFINE_BINARY_OPERATION("-", sub),
-        DEFINE_BINARY_OPERATION("*", mul),
+        DEFINE_RAND_GEN_BINARY_OPERATION("+", add),
+        DEFINE_RAND_GEN_BINARY_OPERATION("-", sub),
+        DEFINE_RAND_GEN_BINARY_OPERATION("*", mul),
         // DEFINE_BINARY_OPERATION("/", div),
+        DEFINE_RAND_GEN_SHIFT_OPERATION("<<", shiftLeft),
+        DEFINE_RAND_GEN_SHIFT_OPERATION(">>", shiftRight)
     };
     const std::size_t opNum = sizeof(operations) / sizeof(*operations);
 

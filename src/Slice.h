@@ -102,7 +102,7 @@ public:
     }
 
     Slice & slice(SizeType lo, SizeType hi) {
-        PGZXB_DEBUG_ASSERT_EX("lo must be less than hi", lo <= hi);
+        PGZXB_DEBUG_ASSERT_EX("lo must be not more than hi", lo <= hi);
         if (lo == hi) {
             m_hi = m_lo;
             return *this;
@@ -114,8 +114,22 @@ public:
         return *this;
     }
 
+    Slice & preExtend(SizeType n, const T & value = T{}) {
+        if (m_lo >= n) m_lo = m_lo - n;
+        else {
+            SizeType exlen = n - m_lo + DEFAULT_PRE_SPACE;
+            m_data->insert(m_data->begin(), exlen, value);
+            m_lo = DEFAULT_PRE_SPACE;
+            m_hi += exlen;
+        }            
+
+        std::fill_n(m_data->begin() + m_lo, n, value);
+
+        return *this;
+    }
+
     Slice sliced(SizeType lo, SizeType hi) const {
-        PGZXB_DEBUG_ASSERT_EX("lo must be less than hi", lo <= hi);
+        PGZXB_DEBUG_ASSERT_EX("lo must be not more than hi", lo <= hi);
 
         Slice copy = *this;
 
@@ -127,10 +141,12 @@ public:
     }
 
     T & operator[] (SizeType i) {
+        PGZXB_DEBUG_ASSERT_EX("out of bound", i + m_lo < m_hi);
         return m_data->operator[](m_lo + i);
     }
 
     const T & operator[] (SizeType i) const {
+        PGZXB_DEBUG_ASSERT_EX("out of bound", i + m_lo < m_hi);
         return m_data->operator[](m_lo + i);
     }
 
