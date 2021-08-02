@@ -300,6 +300,20 @@ BigIntegerImpl::BigIntegerImpl(std::int64_t i64) {
     assign(i64);
 }
 
+BigIntegerImpl::BigIntegerImpl(Slice<std::uint32_t> && slice, int signum) : m_mag(std::move(slice)) { // signum, 1 : posi, -1 : neg, 0 : zero
+    switch (signum) {
+    case -1 : setFlagsToNegative(); break;
+    case 0 : beZero(); break;
+    case 1 : setFlagsToPositive(); break;
+    default : 
+        PGZXB_DEBUG_ASSERT_EX("signum : -1 or 0 or +1", false);
+        break;
+    }
+
+    detail::eraseZerosSuffix(m_mag); // 去除前导零
+    if (m_mag.count() == 0) beZero();
+}
+
 BigIntegerImpl::BigIntegerImpl(const void * bin, SizeType len, bool little) {
     assign(bin, len, little);
 }
@@ -645,17 +659,22 @@ void BigIntegerImpl::mulAssign(const BigIntegerImpl & other) {
     if (other.isOne()) return; // a * 1 == a
     if (other.isNegOne()) { negate(); return; } // a * -1 == -a
     if (isOne()) { assign(other); return; } // 1 * a == a
-    if (isOne()) { assign(other).negate(); return; } // -1 * a == -a
+    if (isNegOne()) { assign(other).negate(); return; } // -1 * a == -a
+
+    constexpr const SizeType KARATSUBA_THRESHOLD = 80;
+    const SizeType alen = m_mag.count();
+    const SizeType blen = other.m_mag.count();
 
     // free-cache
     beginWrite();
 
-    // 设置符号位
-    if (hasSameSigFlag(other)) setFlagsToPositive();
-    else setFlagsToNegative();
-
     // 规模较小直接采用小学生算法
-    if (true) {
+    if (alen < KARATSUBA_THRESHOLD || blen < KARATSUBA_THRESHOLD) {
+        // 设置符号位
+        if (hasSameSigFlag(other)) setFlagsToPositive();
+        else setFlagsToNegative();
+        
+        // 计算
         if (other.m_mag.count() == 1) {
             m_mag.cloneData();
             detail::gradSchoolMulInplace(m_mag, other.m_mag[0]);
@@ -672,9 +691,11 @@ void BigIntegerImpl::mulAssign(const BigIntegerImpl & other) {
         m_mag = detail::gradeSchoolMul(m_mag, other.m_mag);
         detail::eraseZerosSuffix(m_mag); // 去除前导零
         return;
+    } else if (true) { // 规模中等采用Karatsuba算法
+        BigIntegerImpl res;
+        mulKaratsuba(res, *this, other);
+        assign(res);
     }
-    // 规模中等采用Karatsuba算法
-
     // 规模再大采用Toom Cook-3算法
 }
 
@@ -807,9 +828,9 @@ void BigIntegerImpl::shiftRightAssign(std::uint64_t u64) {
         detail::shrMag(m_mag, u64);
 
         if (m_mag.count() == 0) {
-            if (flagsContains(BNFlag::NEGATIVE)) {
-                if (lostOne) beNegOne();
-                else beZero();
+            if (lostOne) { // lostOne隐含了flagsContains(BNFlag::NEGATIVE)
+                PGZXB_DEBUG_ASSERT(flagsContains(BNFlag::NEGATIVE));
+                beNegOne();
             } else beZero();
         } else if (lostOne) detail::inc(m_mag);
 
@@ -821,9 +842,14 @@ void BigIntegerImpl::negate() {
     if (flagsContains(BNFlag::ZERO)) return;
     constexpr Enum POSI_NEG = BNFlag::POSITIVE | BNFlag::NEGATIVE;
 
-    beginWrite(); // 清除缓存
+    // beginWrite(); // 不需要清除缓存
 
     m_flags ^= POSI_NEG;
+}
+
+void BigIntegerImpl::abs() {
+    if (flagsContains(BNFlag::NEGATIVE)) negate(); // 为负求相反数
+    // else return; // 零或正无需处理
 }
 
 int BigIntegerImpl::cmp(const BigIntegerImpl & other) const {
@@ -846,7 +872,85 @@ int BigIntegerImpl::cmp(const BigIntegerImpl & other) const {
     return selfSignum == 1 ? magCmp : -magCmp;
 }
 
+// BigIntegerImpl's static-functions
+void BigIntegerImpl::mul(BigIntegerImpl & res, const BigIntegerImpl & a, const BigIntegerImpl & b) {
+    if (a.flagsContains(BNFlag::ZERO) || b.flagsContains(BNFlag::ZERO)) { res.beZero(); return; }
+    if (a.isOne()) { res.assign(b); return; } // b
+    if (a.isNegOne()) { res.assign(b).negate(); return; } // -b
+    if (b.isOne()) { res.assign(a); return; } // a
+    if (b.isNegOne()) { res.assign(a).negate(); return; } // -a
+
+    constexpr const SizeType KARATSUBA_THRESHOLD = 80;
+
+    res.beginWrite();
+
+    if (a.hasSameSigFlag(b)) res.setFlagsToPositive();
+    else res.setFlagsToNegative();
+
+    const SizeType alen = a.m_mag.count();
+    const SizeType blen = b.m_mag.count();
+
+    // 规模较小直接采用小学生算法
+    if (alen < KARATSUBA_THRESHOLD || blen < KARATSUBA_THRESHOLD) {
+        if (b.m_mag.count() == 1) {
+            res.m_mag = a.m_mag;
+            res.m_mag.cloneData();
+            detail::gradSchoolMulInplace(res.m_mag, b.m_mag[0]);
+            return;
+        }
+        if (a.m_mag.count() == 1) {
+            res.m_mag = b.m_mag;
+            res.m_mag.cloneData();
+            detail::gradSchoolMulInplace(res.m_mag, a.m_mag[0]);
+            return;
+        }
+
+        res.m_mag = detail::gradeSchoolMul(a.m_mag, b.m_mag);
+        detail::eraseZerosSuffix(res.m_mag); // 去除前导零
+        return;
+    } else if (true) { // 规模中等采用Karatsuba算法
+        mulKaratsuba(res, a, b);
+    }
+    // 规模再大采用Toom Cook-3算法
+}
+
 // BigIntegerImpl's private-functions
+void BigIntegerImpl::mulKaratsuba(BigIntegerImpl & res, const BigIntegerImpl & a, const BigIntegerImpl & b) { // static-function
+    const SizeType alen = a.m_mag.count();
+    const SizeType blen = b.m_mag.count();
+
+    const SizeType half = (std::max(alen, blen) + 1) / 2;
+
+    std::vector<BigIntegerImpl> aBlocks = a.split(2, half); // {al, ah}
+    std::vector<BigIntegerImpl> bBlocks = b.split(2, half); // {bl, bh}
+    PGZXB_DEBUG_ASSERT(aBlocks.size() == 2);
+    PGZXB_DEBUG_ASSERT(bBlocks.size() == 2);
+
+    res.beginWrite();
+    res.m_mag.cloneData();
+
+    mul(res, aBlocks[1], bBlocks[1]); // res <- ah * bh, p1 = res
+
+    BigIntegerImpl p2;
+    mul(p2, aBlocks[0], bBlocks[0]); // p2 <- al * bl
+
+    BigIntegerImpl p3;
+    aBlocks[1].addAssign(aBlocks[0]);
+    bBlocks[1].addAssign(bBlocks[0]);
+    mul(p3, aBlocks[1], bBlocks[1]);
+
+    p3.subAssign(res);
+    p3.subAssign(p2);
+
+    res.shiftLeftAssign(32 * half);
+    res.addAssign(p3);
+    res.shiftLeftAssign(32 * half);
+    res.addAssign(p2);
+
+    if (a.hasSameSigFlag(b)) res.setFlagsToPositive();
+    else res.setFlagsToNegative();
+}
+
 void BigIntegerImpl::beginWrite() {
     // 擦除所有的懒求值标志
     detail::eraseBits(m_flags, BNFlag::LAZY_CALCU_FLAGS);
@@ -899,6 +1003,31 @@ void BigIntegerImpl::beNegOne() {
     m_mag = Slice<std::uint32_t>();
     m_flags = BNFlag::NEGATIVE;
     m_mag.append(0x1);
-    m_firstNotZeroU32IndexLazy = 1;
+    m_firstNotZeroU32IndexLazy = 0;
     detail::setBits(m_flags, BNFlag::FIRST_NZ_U32_INDEX_CALCUED);
+}
+
+std::vector<BigIntegerImpl> BigIntegerImpl::split(SizeType n, SizeType size) const {
+    PGZXB_DEBUG_ASSERT_EX("n * size must be more than m_mag.count()", n * size >= m_mag.count());
+    std::vector<BigIntegerImpl> res;
+
+    const SizeType numFull = m_mag.count() / size;
+    for (SizeType i = 0; i < numFull; ++i) {
+        res.emplace_back(m_mag.sliced(i * size, (i + 1) * size), +1);
+    }
+
+    if (m_mag.count() % size != 0) {
+        res.emplace_back(m_mag.sliced(numFull * size, m_mag.count()), +1);
+    }
+
+    PGZXB_DEBUG_ASSERT(n >= res.size());
+    const SizeType remNum = n - res.size();
+    for (SizeType i = 0; i < remNum; ++i) {
+        res.emplace_back();
+        res.back().beZero();
+    }
+
+    PGZXB_DEBUG_ASSERT(n == res.size());
+    
+    return res;
 }

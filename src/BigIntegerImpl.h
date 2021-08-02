@@ -32,6 +32,8 @@ public:
 
     BigIntegerImpl(std::int64_t i64);
 
+    BigIntegerImpl(Slice<std::uint32_t> && slice, int signum); // signum, 1 : posi, -1 : neg, 0 : zero
+
     //// from binary, 2's complement, default little endian
     BigIntegerImpl(const void * bin, SizeType len, bool little = true);
 
@@ -119,17 +121,20 @@ public:
     // negate
     void negate();
 
-    // // abs
-    // void abs();
+    // abs
+    void abs();
 
     // compare
     int cmp(const BigIntegerImpl & other) const; // less : -1, equals : 0, more : +1
 
     // // inverse-bits inplace
     // void inverse(); [useless]
+public:
+    static void mul(BigIntegerImpl & res, const BigIntegerImpl & a, const BigIntegerImpl & b);
+    // static BigIntegerImpl mulToomCook3(const BigIntegerImpl & a, const BigIntegerImpl & b);
 
 private:
-    // BigIntegerImpl(const Slice<std::uint32_t> & slice, int signum); // signum, 1 : posi, -1 : neg, 0 : zero
+    static void mulKaratsuba(BigIntegerImpl & res, const BigIntegerImpl & a, const BigIntegerImpl & b);
 
     void beginWrite(); // 初始化写操作
 
@@ -142,6 +147,8 @@ private:
 
     void beZero();
     void beNegOne();
+
+    std::vector<BigIntegerImpl> split(SizeType n, SizeType size) const;
 private:
     mutable Enum m_flags = BNFlag::INVALID; // flags : 约定: assign(除了copy)后flags只有符号标志位, 其他写操作或懒求值操作均是修改flags的位
     Slice<std::uint32_t> m_mag{}; // 绝对值二进制, 去除前导零(高位 | 大下标)
