@@ -11,6 +11,10 @@
 #include <cstdint>
 #include <string>
 
+#ifdef _MSC_VER
+#include <intrin.h>
+#endif
+
 #define PGZXB_ROOT_NAMESPACE_START namespace pg {
 #define PGZXB_ROOT_NAMESPACE_END }
 #define PGZXB_PASS (void(0))
@@ -61,6 +65,8 @@ using Enum = std::uint32_t;
 using Byte = std::uint8_t;
 using String = std::string;
 
+#define PRI_ENUM PRIu32
+
 constexpr SizeType DEFAULT_BUFFER_SIZE = 512;
 
 #if __cplusplus >= 201703L
@@ -98,6 +104,57 @@ struct Deleter {
         pg::PGZXB_DELETE(ptr);
     }
 };
+
+#if defined(__GNUC__)
+int inline popcnt(std::uint32_t x) {
+    return __builtin_popcount(x);
+}
+#else
+int inline popcnt(std::uint32_t x) {
+    x -= ((x >> 1) & 0x55555555);
+    x = (((x >> 2) & 0x33333333) + (x & 0x33333333));
+    x = (((x >> 4) + x) & 0x0f0f0f0f);
+    x += (x >> 8);
+    x += (x >> 16);
+    return (int)(std::uint32_t)(x & 0x0000003f);
+}
+#endif
+
+#if defined(__GNUC__)
+int inline clz(std::uint32_t x) {
+    return __builtin_clz(x);
+}
+
+int inline ctz(std::uint32_t x) {
+    return __builtin_ctz(x);
+}
+#elif defined(_MSC_VER)
+int __inline ctz(std::uint32_t value) {
+    DWORD trailing_zero = 0;
+
+    if (_BitScanForward(&trailing_zero, value)) return (int)(std::uint32_t)trailing_zero;
+    else return 32;
+}
+
+int __inline clz(std::uint32_t value) {
+    DWORD leading_zero = 0;
+
+    if (_BitScanReverse( &leading_zero, value )) return 31 - leading_zero;
+    else return 32;
+}
+#else
+int inline clz(std::uint32_t x) {
+    x |= (x >> 1);
+    x |= (x >> 2);
+    x |= (x >> 4);
+    x |= (x >> 8);
+    x |= (x >> 16);
+    return (int)(std::uint32_t)(32 - popcnt(x));
+}
+int inline ctz(std::uint32_t x) {
+    return popcnt((x & -x) - 1);
+}
+#endif
 
 namespace detail {
 

@@ -1,4 +1,6 @@
 #include "BigIntegerImpl.h"
+#include "Status.h"
+#include "errInfos.h"
 
 #include <limits>
 #include <cstring>
@@ -11,7 +13,7 @@ PGBN_NAMESPACE_START
 namespace detail {
 
 // 去除后导零
-// static void eraseZerosPrefix(Slice<std::uint32_t> & s) {
+// static void eraseZerosPrefix(Slice<std::uint32_t> & s) { [useless]
 //     const SizeType cnt = s.count();
 //     SizeType i = 0;
 //     while (i < cnt && s[i] == 0) ++i;
@@ -286,6 +288,43 @@ static inline bool isPow2(std::uint64_t n) {
     return (n & (n - 1)) == 0;
 }
 
+// // SchoolBook除法subroutine, A, B > 0, refer to http://bioinfo.ict.ac.cn/~dbu/AlgorithmCourses/Lectures/Lec5-Fast-Division-Hasselstrom2003.pdf
+// static std::tuple<BigIntegerImpl, BigIntegerImpl> schoolBookDivisionSubroutine(
+//     const BigIntegerImpl & A,
+//     const BigIntegerImpl & B
+// ) {
+//     // 命名不符合编码规范, 为了和论文匹配
+//     constexpr std::uint64_t MASK = 0xffffffff;
+//     auto [bitCntOfBR, bitCntOfBQ] = B.getMagBitCount(); // bitCntOfB = bitCntOfBR + bitCntOfBQ * 32
+//     BigIntegerImpl n = bitCntOfBQ;
+//     n.mulAssign(32);
+//     n.addAssign(bitCntOfBR); // bitCntOfBR + bitCntOfBQ * 32
+//     SizeType beta = 2;
+//     SizeType expOfBetaBase2 = 1;
+//     while (n.isEven() && expOfBetaBase2 * 2 <= 32) {
+//         n.shiftRightAssign(1);
+//         beta = beta * beta;
+//         expOfBetaBase2 *= 2;
+//     }
+//     BigIntegerImpl betaTimesB;
+//     betaTimesB.assign(B);
+//     betaTimesB.shiftLeftAssign(expOfBetaBase2); // B << 32 <=> B * beta
+//     auto cmpCode = A.cmp(betaTimesB);
+//     if (cmpCode > 0) { // A > B * beta
+//         BigIntegerImpl ASubBetaTimesB;
+//         ASubBetaTimesB.assign(A); // A
+//         ASubBetaTimesB.subAssign(betaTimesB); // A - B * beta
+//         auto [q, r] = schoolBookDivisionSubroutine(ASubBetaTimesB, B);
+//         q.addAssign(beta); // q <- q * beta
+//         return std::make_tuple(q, r);
+//     } else if (cmpCode == 0) return std::make_tuple(BigIntegerImpl(beta), BigIntegerImpl(0));
+//     BigIntegerImpl q, R;
+//     std::uint64_t an, an1, bn1;
+//     const SizeType magU32Cnt = A.getMagU32Count();
+//     PGZXB_DEBUG_ASSERT(magU32Cnt > 0);
+//     an = A.getU32(n );
+// }
+
 }
 PGBN_NAMESPACE_END
 
@@ -490,6 +529,14 @@ BigIntegerImpl & BigIntegerImpl::assign(const void * bin, SizeType len, bool lit
     return *this;
 }
 
+void BigIntegerImpl::swap(BigIntegerImpl & other) noexcept {
+    using std::swap;
+    using pgbn::swap;
+    swap(m_mag, other.m_mag);
+    swap(m_flags, other.m_flags);
+    swap(m_firstNotZeroU32IndexLazy, other.m_firstNotZeroU32IndexLazy);
+}
+
 std::uint32_t BigIntegerImpl::getU32(SizeType n) const {
     
     if (flagsContains(BNFlag::ZERO)) return 0x0; // 如果是零直接返回0
@@ -568,6 +615,18 @@ bool BigIntegerImpl::isNegOne() const {
     }
 
     return false;
+}
+
+bool BigIntegerImpl::isOdd() const {
+    return !isEven();
+}
+
+bool BigIntegerImpl::isEven() const {
+    if (flagsContains(BNFlag::ZERO)) return true;
+
+    PGZXB_DEBUG_ASSERT(m_mag.count() > 0);
+    std::uint32_t mag0 = m_mag[0];
+    return (mag0 & 0x1) == 0;
 }
 
 void BigIntegerImpl::addAssign(std::int64_t i64) {
@@ -698,6 +757,18 @@ void BigIntegerImpl::mulAssign(const BigIntegerImpl & other) {
     }
     // 规模再大采用Toom Cook-3算法
 }
+
+void BigIntegerImpl::divAssign(std::int64_t i64) {
+    divAssign(BigIntegerImpl(i64));
+}
+
+void BigIntegerImpl::divAssign(const BigIntegerImpl & other) {
+    BigIntegerImpl r;
+    BigIntegerImpl q;
+    div(q, r, *this, other);
+    assign(std::move(q));
+}
+
 
 #define DEFINE_BITWISE(operator, otherlen, getU32Index) \
     m_mag.cloneData(); \
@@ -872,6 +943,27 @@ int BigIntegerImpl::cmp(const BigIntegerImpl & other) const {
     return selfSignum == 1 ? magCmp : -magCmp;
 }
 
+SizeType BigIntegerImpl::getMagU32Count() const {
+    return m_mag.count();
+}
+
+std::tuple<SizeType, SizeType> BigIntegerImpl::getMagBitCount() const {
+    if (flagsContains(BNFlag::ZERO)) return std::make_tuple(0, 0);
+    PGZXB_DEBUG_ASSERT(m_mag.count() > 0);
+
+    SizeType r, q;
+    q = m_mag.count() - 1;
+    
+    std::uint32_t mlast = m_mag[q];
+    int lzCount = ::pg::util::clz(mlast); // leading zero count
+    int sbCount = 32 - lzCount; // significant bit count
+    r = static_cast<SizeType>(sbCount);
+
+    if (r == 32) { r = 0; ++q; }
+   
+    return std::make_tuple(r, q);
+}
+
 // BigIntegerImpl's static-functions
 void BigIntegerImpl::mul(BigIntegerImpl & res, const BigIntegerImpl & a, const BigIntegerImpl & b) {
     if (a.flagsContains(BNFlag::ZERO) || b.flagsContains(BNFlag::ZERO)) { res.beZero(); return; }
@@ -914,6 +1006,67 @@ void BigIntegerImpl::mul(BigIntegerImpl & res, const BigIntegerImpl & a, const B
     // 规模再大采用Toom Cook-3算法
 }
 
+void BigIntegerImpl::div(BigIntegerImpl & q, BigIntegerImpl & r, const BigIntegerImpl & a, const BigIntegerImpl & b) {
+    BigIntegerImpl dividend(a);
+    BigIntegerImpl divisor(b);
+
+    dividend.setFlagsToPositive(); // |a|
+    divisor.setFlagsToPositive();  // |b|
+
+    int aSigNum = a.flagsContains(BNFlag::POSITIVE) ? +1 : (a.flagsContains(BNFlag::ZERO) ? 0 : -1);
+    int bSigNum = b.flagsContains(BNFlag::POSITIVE) ? +1 : (b.flagsContains(BNFlag::ZERO) ? 0 : -1);
+
+    if (bSigNum == 0) { GetGlobalStatus() = ErrCode::DIVBY0; return; } // a/0 error
+    if (aSigNum == 0) { q.beZero(); r.beZero(); return; } // 0/b == 0...0
+
+    if (b.m_mag.count() == 1) { // 转发到 a/<int64_t>
+
+        q.assign(a);
+        q.divideAssignAndReminderByU32(b.m_mag[0], r);
+        if (!q.flagsContains(BNFlag::ZERO)) {
+            if (aSigNum == bSigNum) q.setFlagsToPositive();
+            else q.setFlagsToNegative();
+        }
+        if (!r.flagsContains(BNFlag::ZERO)) {
+            if (aSigNum < 0) r.setFlagsToNegative();
+            else r.setFlagsToPositive();
+        }
+        return;
+    }
+
+    if (int cmpCode = dividend.cmp(divisor); cmpCode <= 0) { // |a| <= |b|
+        if (cmpCode == 0) { // |a| == |b|
+            if (aSigNum == bSigNum) q.beOne();
+            else q.beNegOne();
+            r.beZero();
+        } else { // |a| < |b|
+            q.beZero();
+            r.assign(dividend);
+            if (aSigNum > 0) r.setFlagsToPositive(); // 余数的符号和被除数的符号相同
+            else r.setFlagsToNegative();
+        }
+        return;
+    }
+
+    PGZXB_DEBUG_ASSERT(dividend.m_mag.count() >= divisor.m_mag.count());
+    dividend.beginWrite(); // free-cache
+    dividend.m_mag.cloneData(); // clone-base-data
+    if (dividend.m_mag.count() == divisor.m_mag.count()) dividend.m_mag.append(0);
+    PGZXB_DEBUG_ASSERT(dividend.m_mag.count() > divisor.m_mag.count());
+
+    // construct |q| and |r|
+    knuthDivImpl(q, r, dividend, divisor);
+    // set sig of q and r
+    if (aSigNum == bSigNum) q.setFlagsToPositive();
+    else q.setFlagsToNegative();
+    if (!r.flagsContains(BNFlag::ZERO)) {
+        if (aSigNum < 0) r.setFlagsToNegative();
+        else r.setFlagsToPositive();
+    }
+    // set status
+    GetGlobalStatus() = ErrCode::SUCCESS;
+}
+
 // BigIntegerImpl's private-functions
 void BigIntegerImpl::mulKaratsuba(BigIntegerImpl & res, const BigIntegerImpl & a, const BigIntegerImpl & b) { // static-function
     const SizeType alen = a.m_mag.count();
@@ -949,6 +1102,209 @@ void BigIntegerImpl::mulKaratsuba(BigIntegerImpl & res, const BigIntegerImpl & a
 
     if (a.hasSameSigFlag(b)) res.setFlagsToPositive();
     else res.setFlagsToNegative();
+}
+
+void BigIntegerImpl::knuthDivImpl(BigIntegerImpl & q, BigIntegerImpl & r, const BigIntegerImpl & u, const BigIntegerImpl & v) {
+    // refer to TAOCP II , Section 3.4.1, Written By Knuth
+
+    // some useful contants
+    constexpr std::uint64_t NEG1 = static_cast<std::uint64_t>(-1);
+
+    // requires v.bits > 0, u.bits > v.bits
+    PGZXB_DEBUG_ASSERT_EX("the bit-count of v must be more 1", v.m_mag.count() > 1);
+    PGZXB_DEBUG_ASSERT_EX("the bit-count of u must be more than v's", u.m_mag.count() > v.m_mag.count());
+
+    // copy u, v as dividend, divisor
+    BigIntegerImpl dividend(u), divisor(v);
+
+    // m, n
+    const SizeType N = v.m_mag.count();
+    const SizeType M = u.m_mag.count() - N;
+    PGZXB_DEBUG_ASSERT(M > 0);
+
+    // 规格化
+    std::uint64_t b = 0x1'0000'0000; // base, 2 ** 32
+    std::uint64_t lShift = 0; // logb(d)
+    std::uint64_t vn1_copy = v.m_mag[N - 1]; // Vn-1
+    while (vn1_copy < b / 2) { vn1_copy <<= 1; ++lShift; }
+    dividend.shiftLeftAssign(lShift); // dividend <- dividend * d
+    divisor.shiftLeftAssign(lShift);  // divisor <- divisor * d
+    dividend.m_mag.append(0);
+    auto & uMag = dividend.m_mag;
+    const auto & vMag = divisor.m_mag;
+    // PGZXB_DEBUG_ASSERT(uMag.count() == M + N + 1);
+    PGZXB_DEBUG_ASSERT(vMag.count() == N);
+
+    // create q-array
+    Slice<std::uint32_t> qArr;
+    qArr.slice(0, M + 1);
+
+    // 初始化j, 开始loop
+    const std::uint64_t vn1 = vMag[N - 1]; // Vn-1
+    const std::uint64_t vn2 = vMag[N - 2]; // Vn-2
+    for (SizeType j = M; j != NEG1; --j) {
+        // 计算q的估计(qHat)
+        const std::uint64_t ujn = uMag[j + N]; // Uj+n
+        const std::uint64_t ujn1 = uMag[j + N - 1]; // Uj+n-1
+        const std::uint64_t ujn2 = uMag[j + N - 2]; // Uj+n-2
+        std::uint64_t qHat = (ujn * b + ujn1) / vn1; // q^ <- (Uj+n * b + Uj+n-1) / Vn-1
+        std::uint64_t rHat = (ujn * b + ujn1) % vn1; // r^ <- (Uj+n * b + Uj+n-1) % Vn-1
+        if (qHat == b || qHat * vn2 > b * rHat + ujn2) --qHat;
+        // if (rHat < b && (qHat == b || qHat * vn2 > b * rHat + ujn2)) --qHat;
+        
+        // 乘和减
+        std::int64_t borrow = 0;
+        std::uint64_t carry = 0;
+        for (SizeType k = 0; k < N; ++k) {
+            carry += qHat * vMag[k];
+            borrow += uMag[j + k];
+            borrow -= static_cast<std::uint32_t>(carry);
+            uMag[j + k] = static_cast<std::uint32_t>(borrow);
+            borrow >>= 32;
+            carry >>= 32;
+        }
+        borrow += uMag[j + N];
+        borrow -= carry;
+        uMag[j + N] = static_cast<std::uint32_t>(borrow);
+        borrow >>= 32;
+
+        // 测试余数
+        qArr[j] = qHat;
+        if (borrow < 0) {
+            // 往回加
+            while (borrow < 0) {
+                PGZXB_DEBUG_ASSERT(borrow == -1);
+                carry = 0;
+                for (SizeType k = 0; k < N; ++k) {
+                    carry += uMag[j + k];
+                    carry += vMag[k];
+                    uMag[j + k] = static_cast<std::uint32_t>(carry);
+                    carry >>= 32;
+                }
+                carry += uMag[j + N];
+                uMag[j + N] = static_cast<std::uint32_t>(carry);
+                carry >>= 32;
+                borrow += carry;
+                --qHat;
+            }
+            PGZXB_DEBUG_ASSERT(borrow == 0);
+        }
+        qArr[j] = static_cast<std::uint32_t>(qHat);
+
+        // 对j进行循环 j != -1, --j
+    }
+
+    // init result-q, result-r
+    q.setFlagsToPositive();
+    r.setFlagsToPositive();
+
+    // 不(反)规格化 & Save Result
+    detail::eraseZerosSuffix(qArr);
+    q.m_mag = std::move(qArr); // save result q
+
+    detail::eraseZerosSuffix(dividend.m_mag); // erase leading zeros
+    dividend.shiftRightAssign(lShift); // 反规格化
+    r.m_mag = std::move(dividend.m_mag); // save result r
+    if (r.m_mag.count() == 0) r.beZero(); // if 0, let 0
+}
+
+void BigIntegerImpl::divideAssignAndReminderByU32(std::uint32_t u32, BigIntegerImpl & r) {
+    if (u32 == 0) { GetGlobalStatus() = ErrCode::DIVBY0; return; }
+    
+    int thisSigNum = flagsContains(BNFlag::POSITIVE) ? +1 : (flagsContains(BNFlag::ZERO) ? 0 : -1);
+    int u32SigNum = +1;
+    if (flagsContains(BNFlag::ZERO)) {
+        r.beZero();
+        return;
+    }
+    if (u32 == +1) {
+        r.beZero();
+        if (thisSigNum == u32SigNum) this->setFlagsToPositive();
+        else this->setFlagsToNegative();
+        return;
+    }
+
+    constexpr std::uint64_t NEG1 = static_cast<std::uint64_t>(-1);
+
+    beginWrite();
+    m_mag.cloneData();
+    auto & mag = m_mag;
+    std::uint64_t x = u32;
+    std::uint64_t y = 0;
+    PGZXB_DEBUG_ASSERT(mag.count() > 0);
+    for (SizeType i = mag.count() - 1; i != NEG1; --i) {
+        y <<= 32;
+        y += mag[i];
+        mag[i] = static_cast<std::uint32_t>(y / x);
+        y %= x;
+    }
+    
+    // erase leading zeros
+    detail::eraseZerosSuffix(mag);
+
+    // set sig
+    if (mag.count() == 0) beZero();
+    else if (thisSigNum == u32SigNum) setFlagsToPositive();
+    else setFlagsToNegative();
+
+    // save r
+    r.assign(y);
+    if (!r.flagsContains(BNFlag::ZERO)) {
+        if (thisSigNum > 0) r.setFlagsToPositive();
+        else r.setFlagsToNegative();
+    }
+    GetGlobalStatus() = ErrCode::SUCCESS;
+}
+
+void BigIntegerImpl::modAssignAndQuotientByU32(std::uint32_t u32, BigIntegerImpl & q) {
+    if (u32 == 0) { GetGlobalStatus() = ErrCode::DIVBY0; return; }
+    
+    int thisSigNum = flagsContains(BNFlag::POSITIVE) ? +1 : (flagsContains(BNFlag::ZERO) ? 0 : -1);
+    int u32SigNum = +1;
+    if (flagsContains(BNFlag::ZERO)) {
+        q.assign(*this);
+        beZero();
+        return;
+    }
+    if (u32 == +1) {
+        beZero();
+        q.assign(*this);
+        if (thisSigNum == u32SigNum) q.setFlagsToPositive();
+        else q.setFlagsToNegative();
+        return;
+    }
+
+    constexpr std::uint64_t NEG1 = static_cast<std::uint64_t>(-1);
+
+    q.assign(*this);
+    q.setFlagsToPositive();
+    q.m_mag.cloneData();
+    auto & mag = q.m_mag;
+    std::uint64_t x = u32;
+    std::uint64_t y = 0;
+
+    PGZXB_DEBUG_ASSERT(mag.count() > 0);
+    for (SizeType i = mag.count() - 1; i != NEG1; --i) {
+        y <<= 32;
+        y += mag[i];
+        mag[i] = static_cast<std::uint32_t>(y / x);
+        y %= x;
+    }
+
+    // erase leading zeros
+    detail::eraseZerosSuffix(mag);
+
+    // set sig
+    if (thisSigNum == u32SigNum) q.setFlagsToPositive();
+    else q.setFlagsToNegative();
+
+    // ass
+    assign(y);
+    if (!flagsContains(BNFlag::ZERO)) {
+        if (thisSigNum > 0) setFlagsToPositive();
+        else setFlagsToNegative();
+    }
+    GetGlobalStatus() = ErrCode::SUCCESS;
 }
 
 void BigIntegerImpl::beginWrite() {
@@ -997,6 +1353,14 @@ void BigIntegerImpl::beZero() {
     m_mag = Slice<std::uint32_t>();
     m_flags = BNFlag::ZERO;
     m_firstNotZeroU32IndexLazy = 0;
+}
+
+void BigIntegerImpl::beOne() {
+    m_mag = Slice<std::uint32_t>();
+    m_flags = BNFlag::POSITIVE;
+    m_mag.append(0x1);
+    m_firstNotZeroU32IndexLazy = 0;
+    detail::setBits(m_flags, BNFlag::FIRST_NZ_U32_INDEX_CALCUED);
 }
 
 void BigIntegerImpl::beNegOne() {

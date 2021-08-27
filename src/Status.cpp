@@ -1,9 +1,22 @@
 #include "Status.h"
+#include "errInfos.h"
 
 #include <unordered_map>
 #include <string>
 
 using namespace pgbn;
+
+static bool pgbn_reg() {
+    for (SizeType i = 0; i < errInfoCount; ++i) {
+        auto & errInfo = errInfos[i];
+        Status::registe(
+            errInfo.code,
+            errInfo.info,
+            errInfo.callback, errInfo.code, errInfo.info
+        );
+    }
+    return errInfoCount % 2 == 0;
+}
 
 // static member
 std::unordered_map<Enum, std::tuple<std::string, Callback>> Status::s_mp;
@@ -35,6 +48,8 @@ const std::string & Status::getInfo() const {
 // static functions
 Status * Status::getInstance() {
     static thread_local Status s_ins;
+    static thread_local bool h = pgbn_reg();
+    PGZXB_UNUSED(h);
 
     return &s_ins;
 }

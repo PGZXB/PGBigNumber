@@ -12,6 +12,8 @@
 #include <fstream>
 #include <random>
 #include <unordered_map>
+#include <tuple>
+#include <chrono>
 #include <ctime>
 #include <sys/types.h>
 #include <unistd.h>
@@ -51,6 +53,12 @@
  * log_file.close()
  */
 
+struct ResultInfo {
+    std::string msg = "";
+    std::size_t cnt = 0;
+    std::size_t nanosec = 0;
+};
+
 namespace pg::util::stringUtil::__IN_fmtUtil {
 
 template<>
@@ -83,10 +91,22 @@ inline std::string strToPythonHex(std::string && other) {
     return std::move(other);
 }
 
-std::vector<std::string> generateExamples(std::size_t randSeed, std::size_t n, std::size_t m, std::size_t minbytes, std::size_t maxbytes) {
+std::tuple<std::vector<std::string>, std::vector<ResultInfo>> generateExamples(std::size_t randSeed, std::size_t n, std::size_t m, std::size_t minbytes, std::size_t maxbytes) {
     struct AutoDeleter {
         ~AutoDeleter() { free(ptr); }
         void * ptr = nullptr;
+    };
+    struct TimeCounter {
+        TimeCounter(std::size_t & cntBinding) 
+        : cnt(cntBinding), start(std::chrono::steady_clock::now().time_since_epoch().count()) {
+        }
+
+        ~TimeCounter() {
+            cnt += (std::chrono::steady_clock::now().time_since_epoch().count() - start);
+        }
+
+        std::size_t & cnt;
+        std::size_t start = 0;
     };
 
     struct BIImplAndStr {
@@ -127,11 +147,14 @@ std::vector<std::string> generateExamples(std::size_t randSeed, std::size_t n, s
     std::uniform_int_distribution<std::uint64_t> gU64(0, 10000);
 
 #define DEFINE_RAND_GEN_BINARY_OPERATION(op, opN) \
-    [&numbers, &eng, &gPair, &res] () { \
+    [&numbers, &eng, &gPair, &res] (auto getTimeCounter) { \
         auto & a = numbers[gPair(eng)]; \
         auto & b = numbers[gPair(eng)]; \
         pgbn::BigIntegerImpl copy(a.b); \
-        copy.opN##Assign(b.b); \
+        { \
+            auto tmCnt = getTimeCounter(); \
+            copy.opN##Assign(b.b); \
+        } \
         res.emplace_back(a.s) \
             .append(" " op " ") \
             .append(b.s) \
@@ -139,35 +162,95 @@ std::vector<std::string> generateExamples(std::size_t randSeed, std::size_t n, s
             .append(strToPythonHex(copy.toString(16))); \
     }
 #define DEFINE_RAND_GEN_SHIFT_OPERATION(op, opN) \
-    [&numbers, &eng, &gPair, &gU64, &res] () { \
+    [&numbers, &eng, &gPair, &gU64, &res] (auto getTimeCounter) { \
         auto & a = numbers[gPair(eng)]; \
         auto u64 = gU64(eng); \
         pgbn::BigIntegerImpl copy(a.b); \
-        copy.opN##Assign(u64); \
+        { \
+            auto tmCnt = getTimeCounter(); \
+            copy.opN##Assign(u64); \
+        } \
         res.emplace_back(a.s) \
             .append(" " op " ") \
             .append(std::to_string(u64)) \
             .append(" == ") \
             .append(strToPythonHex(copy.toString(16))); \
     }
-    std::function<void()> operations[] = {
+
+    auto divideOperation = [&numbers, &eng, &gPair, &res] (auto getTimeCounter) { // Python和C++涉及负数除法规则不同
+        auto a = numbers[gPair(eng)];
+        auto b = numbers[gPair(eng)];
+        bool an = false, bn = false;
+        if (a.b.flagsContains(pgbn::BNFlag::NEGATIVE)) {
+            a.b.negate();
+            an = true;
+            if (&a == &b) bn = true;
+        }
+        if (b.b.flagsContains(pgbn::BNFlag::NEGATIVE)) { b.b.negate(); bn = true; }
+        PGZXB_DEBUG_ASSERT(a.b.flagsContains(pgbn::BNFlag::ZERO) || (a.b.flagsContains(pgbn::BNFlag::POSITIVE) && !a.b.flagsContains(pgbn::BNFlag::NEGATIVE)));
+        PGZXB_DEBUG_ASSERT(b.b.flagsContains(pgbn::BNFlag::ZERO) || (b.b.flagsContains(pgbn::BNFlag::POSITIVE) && !b.b.flagsContains(pgbn::BNFlag::NEGATIVE)));
+        // if (a.b.cmp(b.b) < 0) {
+            // a.b.swap(b.b);
+            // a.s.swap(b.s);
+            // std::swap(an, bn);
+        // }
+        if (b.b.flagsContains(pgbn::BNFlag::ZERO)) return;
+        // pgbn::BigIntegerImpl copy(a.b);
+        pgbn::BigIntegerImpl q, r;
+        {
+            auto tmCnt = getTimeCounter();
+            pgbn::BigIntegerImpl::div(q, r, a.b, b.b);
+        }
+        res.emplace_back((an ? a.s.substr(1) : a.s))
+            .append(" // ")
+            .append((bn ? b.s.substr(1) : b.s))
+            .append(" == ")
+            .append(strToPythonHex(q.toString(16)));
+        res.emplace_back((an ? a.s.substr(1) : a.s))
+            .append(" % ")
+            .append((bn ? b.s.substr(1) : b.s))
+            .append(" == ")
+            .append(strToPythonHex(r.toString(16)));
+    };
+
+    std::function<void(std::function<TimeCounter()>)> operations[] = {
         DEFINE_RAND_GEN_BINARY_OPERATION("+", add),
         DEFINE_RAND_GEN_BINARY_OPERATION("-", sub),
         DEFINE_RAND_GEN_BINARY_OPERATION("*", mul),
-        // DEFINE_BINARY_OPERATION("/", div),
+        divideOperation,
         DEFINE_RAND_GEN_SHIFT_OPERATION("<<", shiftLeft),
         DEFINE_RAND_GEN_SHIFT_OPERATION(">>", shiftRight)
     };
+
+    std::vector<ResultInfo> infos = {
+        {"Add"},
+        {"Sub"},
+        {"Multi"},
+        {"Floor-Divide And Mod"},
+        {"ShiftLeft"},
+        {"ShiftRight"},
+    };
+
+    auto getTimeCounterGenerator = [&infos] (std::size_t index) {
+        return [index, &infos] () {
+            return TimeCounter(infos[index].nanosec);
+        };
+    };
+
     const std::size_t opNum = sizeof(operations) / sizeof(*operations);
+    PGZXB_DEBUG_ASSERT(opNum == infos.size());
 
     std::uniform_int_distribution<std::size_t> gOp(0, opNum - 1);
 
     // 随机构造m个计算
     for (std::size_t i = 0; i < m; ++i) {
-        operations[gOp(eng)]();
+
+        std::size_t index = gOp(eng);
+        ++infos[index].cnt;
+        operations[index](getTimeCounterGenerator(index));
     }
 
-    return res;
+    return {res, infos};
 }
 
 #define DEFINE_SETFUNC_FOR_STRING(val) \
@@ -262,8 +345,15 @@ int main (int argc, char * argv[]) {
 
     { // 生成的code并写入文件
         std::cout << "Generating Examples\n";
-        std::vector<std::string> temp = generateExamples(seed, n, m, minbytes, maxbytes);
+        auto [temp, infos] = generateExamples(seed, n, m, minbytes, maxbytes);
         std::cout << "Generate Examples Successfully\n";
+        std::size_t totalCnt = 0, totalMicroSec = 0;
+        for (const auto & info : infos) {
+            std::cout << pgfmt::format("Run {1} Examples Of {0} In {2}ns\n", info.msg, info.cnt, info.nanosec);
+            totalCnt += info.cnt;
+            totalMicroSec += info.nanosec / 1000;
+        }
+        std::cout << pgfmt::format("Summary : Run {0} Examples In {1} μs\n", totalCnt, totalMicroSec);
 
         std::cout << "Updating Examples-file\n";
         std::ofstream efile(examples_filename, std::ios::app);

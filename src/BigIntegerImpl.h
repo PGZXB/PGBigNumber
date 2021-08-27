@@ -52,6 +52,9 @@ public:
     //// from binary, 2's complement, default little endian
     BigIntegerImpl & assign(const void * bin, SizeType len, bool little = true);
 
+    // swap
+    void swap(BigIntegerImpl & other) noexcept;
+
     // // 获取一组二进制补码形式的位, 要求传入的范围大小不超过64位 [useless]
     // std::uint64_t getBits(SizeType lo, SizeType hi); // [lo, hi)
 
@@ -83,6 +86,12 @@ public:
     // isNegOne
     bool isNegOne() const;
 
+    // isOdd
+    bool isOdd() const;
+
+    // isEven
+    bool isEven() const;
+
     // // 运算, 均为本地算法
     // void inc();
     // void dec();
@@ -96,11 +105,18 @@ public:
     // void mulAssign(std::int64_t i64);
     void mulAssign(const BigIntegerImpl & other);
     
-    // void divAssign(std::int64_t i64);
-    // void divAssign(const BigIntegerImpl & other);
+    void divAssign(std::int64_t i64);
+    void divAssign(const BigIntegerImpl & other);
     
-    // std::tuple<std::unique_ptr<BigIntegerImpl>, std::unique_ptr<BigIntegerImpl>>
-    //     divideAndReminder(const BigIntegerImpl & val); // 返回商和余数
+    // void divideAndReminder(const BigIntegerImpl & val, BigIntegerImpl & q, BigIntegerImpl & r) const; // OUT商和余数
+    // void divideAndReminder(std::int64_t i64, BigIntegerImpl & q, BigIntegerImpl & r) const; // OUT商和余数
+
+    // void divideAssignAndReminder(const BigIntegerImpl & val, BigIntegerImpl & r);
+    // void divideAssignAndReminder(std::int64_t i64, BigIntegerImpl & r);
+
+    // void modAssignAndQuotient(const BigIntegerImpl & val, BigIntegerImpl & q);
+    // void modAssignAndQuotient(std::int64_t i64, BigIntegerImpl & q);
+
 
     // 位运算, 按补码形式进行运算
     void andAssign(std::int64_t i64);
@@ -127,14 +143,26 @@ public:
     // compare
     int cmp(const BigIntegerImpl & other) const; // less : -1, equals : 0, more : +1
 
+    // get u32-count
+    SizeType getMagU32Count() const;
+
+    // get bit-count
+    std::tuple<SizeType, SizeType> getMagBitCount() const; // return {r, q}, the result is r + q * 32
+
     // // inverse-bits inplace
     // void inverse(); [useless]
 public:
     static void mul(BigIntegerImpl & res, const BigIntegerImpl & a, const BigIntegerImpl & b);
+    static void div(BigIntegerImpl & q, BigIntegerImpl & r, const BigIntegerImpl & a, const BigIntegerImpl & b);
+    // static void div(BigIntegerImpl & q, BigIntegerImpl & r, const BigIntegerImpl & a, std::int64_t i64);
     // static BigIntegerImpl mulToomCook3(const BigIntegerImpl & a, const BigIntegerImpl & b);
 
 private:
     static void mulKaratsuba(BigIntegerImpl & res, const BigIntegerImpl & a, const BigIntegerImpl & b);
+    static void knuthDivImpl(BigIntegerImpl & q, BigIntegerImpl & r, const BigIntegerImpl & a, const BigIntegerImpl & b); // requires a > b
+
+    void divideAssignAndReminderByU32(std::uint32_t u32, BigIntegerImpl & r);
+    void modAssignAndQuotientByU32(std::uint32_t u32, BigIntegerImpl & r);
 
     void beginWrite(); // 初始化写操作
 
@@ -146,6 +174,7 @@ private:
     bool hasSameSigFlag(const BigIntegerImpl & other) const;
 
     void beZero();
+    void beOne();
     void beNegOne();
 
     std::vector<BigIntegerImpl> split(SizeType n, SizeType size) const;
@@ -154,6 +183,10 @@ private:
     Slice<std::uint32_t> m_mag{}; // 绝对值二进制, 去除前导零(高位 | 大下标)
     mutable SizeType m_firstNotZeroU32IndexLazy = 0; // 从低位开始数的第一个不为0的U32的下标
 };
+
+inline void swap(BigIntegerImpl & a, BigIntegerImpl & b) noexcept {
+    a.swap(b);
+}
 
 PGBN_NAMESPACE_END
 #endif // !PGBIGNUMBER_BIGINTEGERIMPL_H

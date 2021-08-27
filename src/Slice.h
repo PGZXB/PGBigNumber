@@ -52,8 +52,7 @@ public:
 
     Slice & operator= (const Slice &) = default;
 
-    Slice & operator= (Slice && other) {
-
+    Slice & operator= (Slice && other) noexcept {
         m_data = std::move(other.m_data);
         m_lo = other.m_lo;
         m_hi = other.m_hi;
@@ -63,6 +62,13 @@ public:
         other.m_hi = DEFAULT_PRE_SPACE;
 
         return *this;
+    }
+
+    void swap(Slice & other) noexcept {
+        using std::swap;
+        swap(m_lo, other.m_lo);
+        swap(m_hi, other.m_hi);
+        swap(m_data, other.m_data);
     }
 
     Slice & cloneData() {
@@ -173,6 +179,11 @@ private:
     std::shared_ptr<Vec> m_data;
     SizeType m_lo = 0, m_hi = 0; // [lo, hi)
 };
+
+template <typename T = int, typename A = std::allocator<T>>
+void swap(Slice<T, A> & a, Slice<T, A> & b) noexcept {
+    a.swap(b);
+}
 
 PGBN_NAMESPACE_END
 #endif // !PGBIGNUMBER_SLICE_H
