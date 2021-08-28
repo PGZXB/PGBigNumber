@@ -288,42 +288,56 @@ static inline bool isPow2(std::uint64_t n) {
     return (n & (n - 1)) == 0;
 }
 
-// // SchoolBook除法subroutine, A, B > 0, refer to http://bioinfo.ict.ac.cn/~dbu/AlgorithmCourses/Lectures/Lec5-Fast-Division-Hasselstrom2003.pdf
-// static std::tuple<BigIntegerImpl, BigIntegerImpl> schoolBookDivisionSubroutine(
-//     const BigIntegerImpl & A,
-//     const BigIntegerImpl & B
-// ) {
-//     // 命名不符合编码规范, 为了和论文匹配
-//     constexpr std::uint64_t MASK = 0xffffffff;
-//     auto [bitCntOfBR, bitCntOfBQ] = B.getMagBitCount(); // bitCntOfB = bitCntOfBR + bitCntOfBQ * 32
-//     BigIntegerImpl n = bitCntOfBQ;
-//     n.mulAssign(32);
-//     n.addAssign(bitCntOfBR); // bitCntOfBR + bitCntOfBQ * 32
-//     SizeType beta = 2;
-//     SizeType expOfBetaBase2 = 1;
-//     while (n.isEven() && expOfBetaBase2 * 2 <= 32) {
-//         n.shiftRightAssign(1);
-//         beta = beta * beta;
-//         expOfBetaBase2 *= 2;
-//     }
-//     BigIntegerImpl betaTimesB;
-//     betaTimesB.assign(B);
-//     betaTimesB.shiftLeftAssign(expOfBetaBase2); // B << 32 <=> B * beta
-//     auto cmpCode = A.cmp(betaTimesB);
-//     if (cmpCode > 0) { // A > B * beta
-//         BigIntegerImpl ASubBetaTimesB;
-//         ASubBetaTimesB.assign(A); // A
-//         ASubBetaTimesB.subAssign(betaTimesB); // A - B * beta
-//         auto [q, r] = schoolBookDivisionSubroutine(ASubBetaTimesB, B);
-//         q.addAssign(beta); // q <- q * beta
-//         return std::make_tuple(q, r);
-//     } else if (cmpCode == 0) return std::make_tuple(BigIntegerImpl(beta), BigIntegerImpl(0));
-//     BigIntegerImpl q, R;
-//     std::uint64_t an, an1, bn1;
-//     const SizeType magU32Cnt = A.getMagU32Count();
-//     PGZXB_DEBUG_ASSERT(magU32Cnt > 0);
-//     an = A.getU32(n );
-// }
+// get bit-count from digit-count by radix
+static inline SizeType getBitCountByDigitCount(SizeType numDigits, int radix) {
+    static SizeType bitsPerDigit[] = { 
+           0,    0, 1024, 1624, 2048, // 0~4
+        2378, 2648, 2875, 3072, 3247, // 5~9
+        3402, 3543, 3672, 3790, 3899, // 10~14
+        4001, 4096, 4186, 4271, 4350, // 15~19
+        4426, 4498, 4567, 4633, 4696, // 20~24
+        4756, 4814, 4870, 4923, 4975, // 25~29
+        5025, 5074, 5120, 5166, 5210, // 30~34
+        5253, 5295                    // 35~36
+    };
+    constexpr int MIN_RADIX = 2;
+    constexpr int MAX_RADIX = 36;
+    PGZXB_DEBUG_ASSERT_EX("radix must in [2, 3,... ,36]", radix >= MIN_RADIX && radix <= MAX_RADIX);
+
+    return ((numDigits * bitsPerDigit[radix]) >> 10) + 1;
+}
+
+// get digitsPerInt
+static inline std::uint32_t getDigitCountPerInt(int radix) {
+    // FIXME: Can be better
+    static std::uint32_t digitsPerInt[] = {0, 0, 30, 19, 15, 13, 11,
+        11, 10, 9, 9, 8, 8, 8, 8, 7, 7, 7, 7, 7, 7, 7, 6, 6, 6, 6,
+        6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 5};
+    constexpr int MIN_RADIX = 2;
+    constexpr int MAX_RADIX = 36;
+    PGZXB_DEBUG_ASSERT_EX("radix must in [2, 3,... ,36]", radix >= MIN_RADIX && radix <= MAX_RADIX);
+
+    return digitsPerInt[radix];
+}
+
+// get block radix
+static inline std::uint32_t getBlockRadix(int radix) {
+    // FIXME: Can be better
+    static std::uint32_t blockRadix[] = {0, 0,
+        0x40000000, 0x4546b3db, 0x40000000, 0x48c27395, 0x159fd800,
+        0x75db9c97, 0x40000000, 0x17179149, 0x3b9aca00, 0xcc6db61,
+        0x19a10000, 0x309f1021, 0x57f6c100, 0xa2f1b6f,  0x10000000,
+        0x18754571, 0x247dbc80, 0x3547667b, 0x4c4b4000, 0x6b5a6e1d,
+        0x6c20a40,  0x8d2d931,  0xb640000,  0xe8d4a51,  0x1269ae40,
+        0x17179149, 0x1cb91000, 0x23744899, 0x2b73a840, 0x34e63b41,
+        0x40000000, 0x4cfa3cc1, 0x5c13d840, 0x6d91b519, 0x39aa400
+    };
+    constexpr int MIN_RADIX = 2;
+    constexpr int MAX_RADIX = 36;
+    PGZXB_DEBUG_ASSERT_EX("radix must in [2, 3,... ,36]", radix >= MIN_RADIX && radix <= MAX_RADIX);
+
+    return blockRadix[radix];
+}
 
 }
 PGBN_NAMESPACE_END
@@ -405,6 +419,113 @@ BigIntegerImpl & BigIntegerImpl::assign(std::int64_t i64) {
         if (u32s == 2) m_mag[1] = p[0];
     }
 
+    return *this;
+}
+
+BigIntegerImpl & BigIntegerImpl::fromString(const StringArg & str, int radix, bool * ok) {
+    constexpr int MIN_RADIX = 2;
+    constexpr int MAX_RADIX = 36;
+    if (radix < MIN_RADIX || radix > MAX_RADIX) {
+        GetGlobalStatus() = ErrCode::RADIX_INVALID;
+        ok && (*ok = false);
+        return *this;
+    }
+
+    if (str.empty()) {
+        GetGlobalStatus() = ErrCode::NUMBER_STRING_EMPTY;
+        ok && (*ok = false);
+        return *this;
+    }
+
+    const SizeType slen = str.size();
+    SizeType pos = 0;
+
+    int sigNum = 1;
+    auto posiIndex = str.find_last_of('+');
+    auto negIndex = str.find_last_of('-');
+    if (negIndex != StringArg::npos) {
+        if (negIndex != 0 || posiIndex != StringArg::npos) { // 不是第0个或同时有+-都是非法
+            GetGlobalStatus() = ErrCode::NUMBER_STRING_SIG_INVALID;
+            ok && (*ok = false);
+            return *this;
+        }
+        sigNum = -1;
+        pos = 1;
+    } else if (posiIndex != StringArg::npos) {
+        if (posiIndex != 0) {
+            GetGlobalStatus() = ErrCode::NUMBER_STRING_SIG_INVALID;
+            ok && (*ok = false);
+            return *this;
+        }
+        pos = 1;
+    } else { // 没有+-号即为+
+        sigNum = +1;
+    }
+
+    if (pos == slen) {
+        GetGlobalStatus() = ErrCode::NUMBER_STRING_EMPTY;
+        ok && (*ok = false);
+        return *this;
+    }
+
+    pos = str.find_first_not_of('0', pos);
+    if (pos == StringArg::npos) { // 没有非0位, 就是0
+        beZero();
+        return *this;
+    }
+
+    BigIntegerImpl temp;
+    temp.setFlagsToPositive();
+
+    SizeType digitCnt = slen - pos;
+    SizeType bitCnt = detail::getBitCountByDigitCount(digitCnt, radix);
+    if (bitCnt + 31 >= 0x1'0000'0000) {
+        GetGlobalStatus() = ErrCode::ARITHMETIC_OVERFLOW;
+        ok && (*ok = false);
+        return *this;
+    }
+    // SizeType u32Cnt = (bitCnt + 31) / 32;
+    char * cStr = const_cast<char *>(str.data()); // 为了构造"子串", 也许有更好且保持速度的方法
+    char * endToCheck = nullptr;
+    char save = '\0';
+    
+    SizeType fistBlockDigitCnt = digitCnt % detail::getDigitCountPerInt(radix);
+    if (fistBlockDigitCnt == 0) fistBlockDigitCnt = detail::getDigitCountPerInt(radix);
+    
+    save = cStr[pos + fistBlockDigitCnt];
+    cStr[pos + fistBlockDigitCnt] = '\0';
+    std::uint32_t mag0 = util::cStrToU32(cStr + pos, &endToCheck, radix);
+    cStr[pos + fistBlockDigitCnt] = save;
+    if (endToCheck != cStr + pos + fistBlockDigitCnt) {
+        GetGlobalStatus() = ErrCode::NUMBER_STRING_PARSE2NUM_ERROR;
+        ok && (*ok = false);
+        return *this;
+    }
+    pos += fistBlockDigitCnt;
+    temp.m_mag.append(mag0);
+
+    const SizeType blockSize = detail::getDigitCountPerInt(radix);
+    SizeType blockRadix = detail::getBlockRadix(radix);
+    std::uint32_t blockValue = 0;
+    while (pos < slen) {
+        save = cStr[pos + blockSize];
+        cStr[pos + blockSize] = '\0';
+        blockValue = util::cStrToU32(cStr + pos, &endToCheck, radix);
+        cStr[pos + blockSize] = save;
+        if (endToCheck != cStr + pos + blockSize) {
+            GetGlobalStatus() = ErrCode::NUMBER_STRING_PARSE2NUM_ERROR;
+            return *this;
+        }
+        pos += blockSize;
+        temp.mulAssign(blockRadix);
+        temp.addAssign(blockValue);
+    }
+
+    if (sigNum == -1) temp.setFlagsToNegative();
+    else temp.setFlagsToPositive();
+    assign(std::move(temp));
+    GetGlobalStatus() = ErrCode::SUCCESS;
+    ok && (*ok = true);
     return *this;
 }
 

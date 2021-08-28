@@ -11,8 +11,13 @@ struct ErrInfo {
 };
 
 namespace ErrCode {
-    constexpr Enum SUCCESS = 0;
-    constexpr Enum DIVBY0 = 1;
+    constexpr Enum SUCCESS = 0;                       // 成功
+    constexpr Enum DIVBY0 = 1;                        // 除零错误
+    constexpr Enum RADIX_INVALID = 2;                 // 进制非法
+    constexpr Enum NUMBER_STRING_EMPTY = 3;           // 表示数字的有效字符串为空
+    constexpr Enum NUMBER_STRING_SIG_INVALID = 4;     // 表示数字的字符串符号表示非法
+    constexpr Enum NUMBER_STRING_PARSE2NUM_ERROR = 5; // 字符串转数字错误
+    constexpr Enum ARITHMETIC_OVERFLOW = 6;           // 计算过程中溢出
 }
 
 extern const ErrInfo errInfos[];

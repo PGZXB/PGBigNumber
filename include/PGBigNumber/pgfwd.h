@@ -157,8 +157,25 @@ int inline ctz(std::uint32_t x) {
 #endif
 
 template<typename A, typename B>
-auto ceilDivide(const A & dividend, const B & divisor) {
+inline auto ceilDivide(const A & dividend, const B & divisor) {
     return dividend / divisor + (dividend % divisor != 0);
+}
+
+inline std::uint64_t cStrToU64(const char * str, char ** str_end, int radix) {
+    return std::strtoull(str, str_end, radix);
+}
+
+inline std::uint32_t cStrToU32(const char * str, char ** str_end, int radix) {
+    errno = 0;
+    std::uint64_t result = cStrToU64(str, str_end, radix);
+    if (errno != 0 || // 出错或者大于u32最大值
+        result > static_cast<std::uint64_t>(std::numeric_limits<std::uint32_t>::max())
+    ) {
+        errno = ERANGE;
+        str_end && (*str_end = nullptr);
+        return std::numeric_limits<std::uint32_t>::max();
+    }
+    return static_cast<std::uint32_t>(result);
 }
 
 namespace detail {

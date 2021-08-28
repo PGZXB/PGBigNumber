@@ -45,7 +45,10 @@ public:
     BigIntegerImpl & assign(const BigIntegerImpl & other); // Impl尽量提供简单的接口,
     BigIntegerImpl & assign(BigIntegerImpl && other);      // 尽量不以操作符的方式提供API
     BigIntegerImpl & assign(std::int64_t i);
-    // BigIntegerImpl & assign(const StringArg & str, int radix = 10, Status * status = nullptr); ##################
+    BigIntegerImpl & fromString(const StringArg & str, int radix = 10, bool * ok = nullptr);
+    
+    template<std::size_t LEN>
+    BigIntegerImpl & fromString(const char (&str)[LEN], int radix = 10, bool * ok = nullptr); // 处理字面量
     // /* BigIntegerImpl & assign(const ExprTree & tree); */
     // BigIntegerImpl & assign(const StringArg & infixExpr, InfixExprMode mode, Status * status = nullptr);
    
@@ -177,13 +180,19 @@ private:
 
     std::vector<BigIntegerImpl> split(SizeType n, SizeType size) const;
 private:
-    mutable Enum m_flags = BNFlag::INVALID; // flags : 约定: assign(除了copy)后flags只有符号标志位, 其他写操作或懒求值操作均是修改flags的位
+    mutable Enum m_flags = BNFlag::ZERO; // flags : 约定: assign(除了copy)后flags只有符号标志位, 其他写操作或懒求值操作均是修改flags的位
     Slice<std::uint32_t> m_mag{}; // 绝对值二进制, 去除前导零(高位 | 大下标)
     mutable SizeType m_firstNotZeroU32IndexLazy = 0; // 从低位开始数的第一个不为0的U32的下标
 };
 
 inline void swap(BigIntegerImpl & a, BigIntegerImpl & b) noexcept {
     a.swap(b);
+}
+
+template<std::size_t LEN>
+inline BigIntegerImpl & BigIntegerImpl::fromString(const char (&str)[LEN], int radix, bool * ok) {
+    std::string temp(str, LEN - 1);
+    return fromString(temp.c_str(), radix, ok);
 }
 
 PGBN_NAMESPACE_END
