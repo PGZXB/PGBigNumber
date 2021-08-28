@@ -15,6 +15,7 @@
 #include <tuple>
 #include <chrono>
 #include <ctime>
+#include <cstring>
 #include <sys/types.h>
 #include <unistd.h>
 #include <getopt.h>
@@ -146,6 +147,7 @@ std::tuple<std::vector<std::string>, std::vector<ResultInfo>> generateExamples(s
     std::uniform_int_distribution<std::size_t> gPair(0, n - 1);
     std::uniform_int_distribution<std::uint64_t> gU64(0, 10000);
 
+    // 测试用例工厂函数或其模板宏
 #define DEFINE_RAND_GEN_BINARY_OPERATION(op, opN) \
     [&numbers, &eng, &gPair, &res] (auto getTimeCounter) { \
         auto & a = numbers[gPair(eng)]; \
@@ -189,13 +191,7 @@ std::tuple<std::vector<std::string>, std::vector<ResultInfo>> generateExamples(s
         if (b.b.flagsContains(pgbn::BNFlag::NEGATIVE)) { b.b.negate(); bn = true; }
         PGZXB_DEBUG_ASSERT(a.b.flagsContains(pgbn::BNFlag::ZERO) || (a.b.flagsContains(pgbn::BNFlag::POSITIVE) && !a.b.flagsContains(pgbn::BNFlag::NEGATIVE)));
         PGZXB_DEBUG_ASSERT(b.b.flagsContains(pgbn::BNFlag::ZERO) || (b.b.flagsContains(pgbn::BNFlag::POSITIVE) && !b.b.flagsContains(pgbn::BNFlag::NEGATIVE)));
-        // if (a.b.cmp(b.b) < 0) {
-            // a.b.swap(b.b);
-            // a.s.swap(b.s);
-            // std::swap(an, bn);
-        // }
         if (b.b.flagsContains(pgbn::BNFlag::ZERO)) return;
-        // pgbn::BigIntegerImpl copy(a.b);
         pgbn::BigIntegerImpl q, r;
         {
             auto tmCnt = getTimeCounter();
@@ -213,22 +209,46 @@ std::tuple<std::vector<std::string>, std::vector<ResultInfo>> generateExamples(s
             .append(strToPythonHex(r.toString(16)));
     };
 
+    pgbn::Byte * buf = reinterpret_cast<pgbn::Byte*>(::malloc(maxbytes + 1));
+    std::memset(buf, 0, maxbytes + 1); // 清零
+    AutoDeleter deleter = { buf };
+    auto test_copyMagDataTo = [&numbers, &eng, &gPair, &res, &buf, maxbytes] (auto getTimeCounter) {
+        auto a = numbers[gPair(eng)]; // copy
+        a.b.abs(); // be positive
+        a.s = a.s.front() == '-' ? a.s.substr(1) : a.s;  // be positive
+
+        pgbn::BigIntegerImpl test;
+        {   
+            auto tmCnt = getTimeCounter();
+            auto len = a.b.copyMagDataTo(buf, maxbytes); // get bin
+            buf[len] = 0; // 置最高个byte为0, 隐含了一定为正数
+            test.assign(buf, len + 1, true); // from bin, 
+        }
+        PGZXB_DEBUG_ASSERT(test.flagsContains(pgbn::BNFlag::POSITIVE) || test.flagsContains(pgbn::BNFlag::ZERO));
+
+        res.emplace_back(a.s)
+            .append(" == ")
+            .append(strToPythonHex(test.toString(16)));
+    };
+
     std::function<void(std::function<TimeCounter()>)> operations[] = {
         DEFINE_RAND_GEN_BINARY_OPERATION("+", add),
         DEFINE_RAND_GEN_BINARY_OPERATION("-", sub),
         DEFINE_RAND_GEN_BINARY_OPERATION("*", mul),
         divideOperation,
         DEFINE_RAND_GEN_SHIFT_OPERATION("<<", shiftLeft),
-        DEFINE_RAND_GEN_SHIFT_OPERATION(">>", shiftRight)
+        DEFINE_RAND_GEN_SHIFT_OPERATION(">>", shiftRight),
+        test_copyMagDataTo,
     };
 
     std::vector<ResultInfo> infos = {
-        {"Add"},
-        {"Sub"},
-        {"Multi"},
-        {"Floor-Divide And Mod"},
-        {"ShiftLeft"},
-        {"ShiftRight"},
+        { "Add                 ", 0, 0 },
+        { "Sub                 ", 0, 0 },
+        { "Multi               ", 0, 0 },
+        { "Floor-Divide And Mod", 0, 0 },
+        { "ShiftLeft           ", 0, 0 },
+        { "ShiftRight          ", 0, 0 },
+        { "Get-Bin And From-Bin", 0, 0 },
     };
 
     auto getTimeCounterGenerator = [&infos] (std::size_t index) {
@@ -329,6 +349,12 @@ int main (int argc, char * argv[]) {
         "    if eval(e) == False:\n"
         "        err_count += 1\n"
         "        err_val.append(e)\n"
+        "print('Test Time : ', end='')\n"
+        "print('{3}\\n', end='')\n"
+        "print('Test Finished, err_count/test_count = ', end='')\n"
+        "print(str(err_count), end='')\n"
+        "print('/', end='')\n"
+        "print(str(test_count))\n"
         "log_file.write('Test Time : ')\n"
         "log_file.write('{3}\\n')\n"
         "log_file.write('Test Finished, err_count/test_count = ')\n"
@@ -344,16 +370,19 @@ int main (int argc, char * argv[]) {
         "log_file.close()\n";
 
     { // 生成的code并写入文件
-        std::cout << "Generating Examples\n";
+        std::cout << pgfmt::format("Generating Examples(With Seed {0})\n", seed);
         auto [temp, infos] = generateExamples(seed, n, m, minbytes, maxbytes);
         std::cout << "Generate Examples Successfully\n";
-        std::size_t totalCnt = 0, totalMicroSec = 0;
+        std::size_t totalCnt = 0;
+        double totalMicroSec = 0;
+        std::cout << "+================== Examples Running Infomation ===================+\n";
         for (const auto & info : infos) {
-            std::cout << pgfmt::format("Run {1} Examples Of {0} In {2}ns\n", info.msg, info.cnt, info.nanosec);
+            std::cout << pgfmt::format("+ Run {1} Examples Of [{0}] In {2}ns\n", info.msg, info.cnt, info.nanosec);
             totalCnt += info.cnt;
-            totalMicroSec += info.nanosec / 1000;
+            totalMicroSec += info.nanosec / 1000.f;
         }
-        std::cout << pgfmt::format("Summary : Run {0} Examples In {1} μs\n", totalCnt, totalMicroSec);
+        std::cout << pgfmt::format("+ Summary : Run {0} Examples In {1:.3} μs\n", totalCnt, totalMicroSec);
+        std::cout << "+================== Examples Running Infomation ===================+\n";
 
         std::cout << "Updating Examples-file\n";
         std::ofstream efile(examples_filename, std::ios::app);

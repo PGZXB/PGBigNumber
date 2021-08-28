@@ -524,7 +524,7 @@ BigIntegerImpl & BigIntegerImpl::assign(const void * bin, SizeType len, bool lit
     std::memcpy(&m_mag[0], bin, len);
     
     detail::eraseZerosSuffix(m_mag); // 去除前导零
-    if (m_mag.count() == 0) m_flags |= BNFlag::ZERO;
+    if (m_mag.count() == 0) beZero();
 
     return *this;
 }
@@ -591,6 +591,40 @@ std::string BigIntegerImpl::toString(int radix) const {
     }
 
     return res;
+}
+
+SizeType BigIntegerImpl::copyMagDataTo(void * dest, SizeType maxlen) const {
+    if (flagsContains(BNFlag::ZERO)) return 0;
+
+    const auto [bitCountR, bitCountQ] = getMagBitCount();
+    const SizeType byteCount = util::ceilDivide(bitCountR, 8) + bitCountQ * 4;
+    const SizeType len = std::min(maxlen, byteCount);
+
+    if constexpr (isLittleEndian()) { // 无脑copy
+        std::memcpy(dest, &m_mag[0], len);
+    } else { // 稍作调整
+        const SizeType u32Count = m_mag.count();
+        PGZXB_DEBUG_ASSERT(u32Count > 0);
+        std::uint32_t * destU32 = reinterpret_cast<std::uint32_t*>(dest);
+        for (SizeType i = 0; i < u32Count - 1; ++i, ++destU32) {
+            Byte * destByte = reinterpret_cast<Byte*>(destU32);
+            const Byte * srcByte = reinterpret_cast<const Byte*>(&m_mag[i]);
+            destByte[0] = srcByte[3];
+            destByte[1] = srcByte[2];
+            destByte[2] = srcByte[1];
+            destByte[3] = srcByte[0];
+        }
+        if (byteCount % 4 != 0) {
+            Byte * destByte = reinterpret_cast<Byte*>(destU32);
+            const Byte * srcByte = reinterpret_cast<const Byte*>(&m_mag[u32Count - 1]);
+            const SizeType remByteCount = byteCount % 4;
+            for (SizeType i = 0; i < remByteCount; ++i) {
+                destByte[i] = srcByte[3 - i];
+            }
+        }
+    }
+
+    return len;
 }
 
 bool BigIntegerImpl::flagsContains(BNFLAG Enum flags) const {
@@ -713,6 +747,10 @@ void BigIntegerImpl::subAssign(const BigIntegerImpl & other) {
     else setFlagsToNegative();
 }
 
+void BigIntegerImpl::mulAssign(std::int64_t i64) {
+    mulAssign(BigIntegerImpl(i64));
+}
+
 void BigIntegerImpl::mulAssign(const BigIntegerImpl & other) {
     if (flagsContains(BNFlag::ZERO) || other.flagsContains(BNFlag::ZERO)) { beZero(); return; }
     if (other.isOne()) return; // a * 1 == a
@@ -769,6 +807,29 @@ void BigIntegerImpl::divAssign(const BigIntegerImpl & other) {
     assign(std::move(q));
 }
 
+void BigIntegerImpl::divideAssignAndReminder(const BigIntegerImpl & val, BigIntegerImpl & r) {
+    BigIntegerImpl result;
+    div(result, r, *this, val);
+    assign(std::move(result));
+}
+
+void BigIntegerImpl::divideAssignAndReminder(std::int64_t i64, BigIntegerImpl & r) {
+    BigIntegerImpl result;
+    div(result, r, *this, BigIntegerImpl(i64));
+    assign(std::move(result));
+}
+
+void BigIntegerImpl::modAssignAndQuotient(const BigIntegerImpl & val, BigIntegerImpl & q) {
+    BigIntegerImpl result;
+    div(q, result, *this, val);
+    assign(std::move(result));
+}
+
+void BigIntegerImpl::modAssignAndQuotient(std::int64_t i64, BigIntegerImpl & q) {
+    BigIntegerImpl result;
+    div(q, result, *this, BigIntegerImpl(i64));
+    assign(std::move(result));
+}
 
 #define DEFINE_BITWISE(operator, otherlen, getU32Index) \
     m_mag.cloneData(); \
@@ -1065,6 +1126,10 @@ void BigIntegerImpl::div(BigIntegerImpl & q, BigIntegerImpl & r, const BigIntege
     }
     // set status
     GetGlobalStatus() = ErrCode::SUCCESS;
+}
+
+void BigIntegerImpl::div(BigIntegerImpl & q, BigIntegerImpl & r, const BigIntegerImpl & a, std::int64_t i64) {
+    div(q, r, a, BigIntegerImpl(i64));
 }
 
 // BigIntegerImpl's private-functions

@@ -156,6 +156,11 @@ int inline ctz(std::uint32_t x) {
 }
 #endif
 
+template<typename A, typename B>
+auto ceilDivide(const A & dividend, const B & divisor) {
+    return dividend / divisor + (dividend % divisor != 0);
+}
+
 namespace detail {
 
 template <typename VISITOR> // VISITOR : void(SizeType, ARG);

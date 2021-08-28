@@ -34,7 +34,7 @@ public:
 
     BigIntegerImpl(Slice<std::uint32_t> && slice, int signum); // signum, 1 : posi, -1 : neg, 0 : zero
 
-    //// from binary, 2's complement, default little endian
+    // from binary, 2's complement, default little endian
     BigIntegerImpl(const void * bin, SizeType len, bool little = true);
 
     // 禁用赋值运算符
@@ -45,11 +45,11 @@ public:
     BigIntegerImpl & assign(const BigIntegerImpl & other); // Impl尽量提供简单的接口,
     BigIntegerImpl & assign(BigIntegerImpl && other);      // 尽量不以操作符的方式提供API
     BigIntegerImpl & assign(std::int64_t i);
-    // BigIntegerImpl & assign(const StringArg & str, int radix = 10, Status * status = nullptr);
+    // BigIntegerImpl & assign(const StringArg & str, int radix = 10, Status * status = nullptr); ##################
     // /* BigIntegerImpl & assign(const ExprTree & tree); */
     // BigIntegerImpl & assign(const StringArg & infixExpr, InfixExprMode mode, Status * status = nullptr);
    
-    //// from binary, 2's complement, default little endian
+    // from binary, 2's complement, default little endian
     BigIntegerImpl & assign(const void * bin, SizeType len, bool little = true);
 
     // swap
@@ -64,7 +64,7 @@ public:
     // 获取从低位到高位从零开始数的补码形式的第n个32位
     std::uint32_t getU32(SizeType n) const;
 
-    // 获取真值形式的字符串形式
+    // 获取真值形式的字符串形式 ################## 完善 #####################
     std::string toString(int radix) const;
     // std::string toTwosComplmentString() const; [useless]
 
@@ -72,9 +72,9 @@ public:
     // SizeType minimalBitNumber() const; // 二进制补码形式 [useless]
     // SizeType minimalMagBitNumber() const; // 绝对值二进制补码 [useless]
     
-    // // 拷贝mag的二进制位
-    // SizeType copyMagDataTo(void * dest, SizeType maxlen) const; // 绝对值二进制
-    // /* SizeType copyDataTo(void * dest, SizeType maxlen) const; //补码形式, 上层调getU32即可, 不提供. */
+    // 拷贝二进制位
+    SizeType copyMagDataTo(void * dest, SizeType maxlen) const; // 绝对值二进制, little endian
+    // /* SizeType copyDataTo(void * dest, SizeType maxlen) const; //补码形式, 上层调getU32即可, 不提供. */ [useless]
 
     // flags
     bool flagsContains(BNFLAG Enum flags) const;
@@ -92,31 +92,29 @@ public:
     // isEven
     bool isEven() const;
 
-    // // 运算, 均为本地算法
-    // void inc();
-    // void dec();
+    // 自增自减
+    // void inc(); ################
+    // void dec(); ################
 
+    // 加减乘除
     void addAssign(std::int64_t i64);
     void addAssign(const BigIntegerImpl & other);
     
     void subAssign(std::int64_t i64);
     void subAssign(const BigIntegerImpl & other);
     
-    // void mulAssign(std::int64_t i64);
+    void mulAssign(std::int64_t i64);
     void mulAssign(const BigIntegerImpl & other);
     
     void divAssign(std::int64_t i64);
     void divAssign(const BigIntegerImpl & other);
     
-    // void divideAndReminder(const BigIntegerImpl & val, BigIntegerImpl & q, BigIntegerImpl & r) const; // OUT商和余数
-    // void divideAndReminder(std::int64_t i64, BigIntegerImpl & q, BigIntegerImpl & r) const; // OUT商和余数
+    // 除法/取余相关操作
+    void divideAssignAndReminder(const BigIntegerImpl & val, BigIntegerImpl & r);
+    void divideAssignAndReminder(std::int64_t i64, BigIntegerImpl & r);
 
-    // void divideAssignAndReminder(const BigIntegerImpl & val, BigIntegerImpl & r);
-    // void divideAssignAndReminder(std::int64_t i64, BigIntegerImpl & r);
-
-    // void modAssignAndQuotient(const BigIntegerImpl & val, BigIntegerImpl & q);
-    // void modAssignAndQuotient(std::int64_t i64, BigIntegerImpl & q);
-
+    void modAssignAndQuotient(const BigIntegerImpl & val, BigIntegerImpl & q);
+    void modAssignAndQuotient(std::int64_t i64, BigIntegerImpl & q);
 
     // 位运算, 按补码形式进行运算
     void andAssign(std::int64_t i64);
@@ -154,8 +152,8 @@ public:
 public:
     static void mul(BigIntegerImpl & res, const BigIntegerImpl & a, const BigIntegerImpl & b);
     static void div(BigIntegerImpl & q, BigIntegerImpl & r, const BigIntegerImpl & a, const BigIntegerImpl & b);
-    // static void div(BigIntegerImpl & q, BigIntegerImpl & r, const BigIntegerImpl & a, std::int64_t i64);
-    // static BigIntegerImpl mulToomCook3(const BigIntegerImpl & a, const BigIntegerImpl & b);
+    static void div(BigIntegerImpl & q, BigIntegerImpl & r, const BigIntegerImpl & a, std::int64_t i64);
+    // static BigIntegerImpl mulToomCook3(const BigIntegerImpl & a, const BigIntegerImpl & b); [useless]
 
 private:
     static void mulKaratsuba(BigIntegerImpl & res, const BigIntegerImpl & a, const BigIntegerImpl & b);

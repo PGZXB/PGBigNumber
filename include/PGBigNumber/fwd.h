@@ -19,8 +19,17 @@
 #include "pgfwd.h"
 #include "pgdebug.h"
 
-// PGBN <=> PGBigNumber
+/* PGBN <=> PGBigNumber
+   Author : PGZXB(pgzxb@qq.com)
+    _______     ______  ______   ____  _____  
+   |_   __ \  .' ___  ||_   _ \ |_   \|_   _| 
+     | |__) |/ .'   \_|  | |_) |  |   \ | |   
+     |  ___/ | |   ____  |  __'.  | |\ \| |   
+    _| |_    \ `.___]  |_| |__) |_| |_\   |_  
+   |_____|    `._____.'|_______/|_____|\____|
 
+   BigNumber Library Wittien In C++17.
+*/
 #define PGBN_NAMESPACE_START namespace pg { namespace base { namespace bigNumber {
 #define PGBN_NAMESPACE_END } } }
 
