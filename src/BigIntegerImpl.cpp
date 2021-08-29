@@ -835,13 +835,20 @@ SizeType BigIntegerImpl::copyMagDataTo(void * dest, SizeType maxlen) const {
             destByte[2] = srcByte[1];
             destByte[3] = srcByte[0];
         }
+
+        Byte * destByte = reinterpret_cast<Byte*>(dest);
+        destByte += (u32Count - 1) * 4;
+        const Byte * srcByte = reinterpret_cast<const Byte*>(&m_mag[u32Count - 1]);
         if (byteCount % 4 != 0) {
-            Byte * destByte = reinterpret_cast<Byte*>(destU32);
-            const Byte * srcByte = reinterpret_cast<const Byte*>(&m_mag[u32Count - 1]);
             const SizeType remByteCount = byteCount % 4;
             for (SizeType i = 0; i < remByteCount; ++i) {
                 destByte[i] = srcByte[3 - i];
             }
+        } else {
+            destByte[0] = srcByte[3];
+            destByte[1] = srcByte[2];
+            destByte[2] = srcByte[1];
+            destByte[3] = srcByte[0];
         }
     }
 
@@ -1161,6 +1168,24 @@ void BigIntegerImpl::notSelf() {
     default :
         PGZXB_DEBUG_ASSERT_EX("Can Not Be Reached", false);
     } 
+}
+
+void BigIntegerImpl::notBits() {
+    if (flagsContains(BNFlag::ZERO)) return;
+
+    beginWrite(); // free-cache
+    m_mag.cloneData(); // clone base-data
+
+    const SizeType len = m_mag.count();
+    for (SizeType i = 0; i < len - 1; ++i) {
+        m_mag[i] = ~m_mag[i];
+    }
+
+    constexpr std::uint32_t MASK = 0xffff'ffff;
+
+    auto & last = m_mag[len - 1];
+    int leadingZeroCnt = util::clz(last);
+    last = ~last & (MASK >> leadingZeroCnt);
 }
 
 void BigIntegerImpl::shiftLeftAssign(std::uint64_t u64) {

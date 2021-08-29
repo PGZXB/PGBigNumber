@@ -140,6 +140,7 @@ public:
     void xorAssign(const BigIntegerImpl & other);
 
     void notSelf();
+    void notBits();
 
     // 移位, 按照C++的标准, 正数逻辑移位, 负数算术移位(其实就都是算术移位)
     void shiftLeftAssign(std::uint64_t u64);
@@ -160,6 +161,9 @@ public:
     // get bit-count
     std::tuple<SizeType, SizeType> getMagBitCount() const; // return {r, q}, the result is r + q * 32
 
+    // 转化为uint64_t, 二进制补码形式, 截断
+    std::uint64_t toU64() const;
+
     // // inverse-bits inplace
     // void inverse(); [useless]
 public:
@@ -171,12 +175,6 @@ public:
 private:
     static void mulKaratsuba(BigIntegerImpl & res, const BigIntegerImpl & a, const BigIntegerImpl & b);
     static void knuthDivImpl(BigIntegerImpl & q, BigIntegerImpl & r, const BigIntegerImpl & a, const BigIntegerImpl & b); // requires a > b
-
-    // get zeros-string
-    static const char * getZerosStr(int count);
-
-    // get digitsPerU64
-    static std::uint32_t getDigitCountPerU64(int radix);
 
     void divideAssignAndReminderByU32(std::uint32_t u32, BigIntegerImpl & r);
     void modAssignAndQuotientByU32(std::uint32_t u32, BigIntegerImpl & r);
@@ -193,9 +191,6 @@ private:
     void beZero();
     void beOne();
     void beNegOne();
-
-    // 转化为uint64_t, 二进制补码形式, 截断
-    std::uint64_t toU64() const;
 
     std::vector<BigIntegerImpl> split(SizeType n, SizeType size) const;
 private:
