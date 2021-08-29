@@ -21,7 +21,7 @@ public:
     Status & operator= (Status &&) = default;
     Status & operator= (Enum no) noexcept;
 
-    Callback getCallback() const;
+    const Callback & getCallback() const;
     const std::string & getInfo() const;
 public:
     static constexpr Enum INVALID = static_cast<Enum>(-1);

@@ -21,8 +21,11 @@ constexpr Enum LAZY_CALCU_FLAGS = FIRST_NZ_U32_INDEX_CALCUED;
 #define BNFLAG
 
 class Status;
+namespace detail { class BigIntegerImplToStringHelper; }
 
 class BigIntegerImpl {
+    friend class detail::BigIntegerImplToStringHelper;
+    static constexpr SizeType MAX_CHARS_PRE_DIGIT = 64;
 public:
     // 构造
     BigIntegerImpl();
@@ -30,9 +33,14 @@ public:
     explicit BigIntegerImpl(const BigIntegerImpl & other); // 浅拷贝
     explicit BigIntegerImpl(BigIntegerImpl && other) noexcept; // 浅拷贝
 
+    // from int64
     BigIntegerImpl(std::int64_t i64);
 
+    // from mag-array
     BigIntegerImpl(Slice<std::uint32_t> && slice, int signum); // signum, 1 : posi, -1 : neg, 0 : zero
+
+    // from string
+    BigIntegerImpl(const StringArg & str, int radix = 10, bool * ok = nullptr);
 
     // from binary, 2's complement, default little endian
     BigIntegerImpl(const void * bin, SizeType len, bool little = true);
@@ -47,8 +55,6 @@ public:
     BigIntegerImpl & assign(std::int64_t i);
     BigIntegerImpl & fromString(const StringArg & str, int radix = 10, bool * ok = nullptr);
     
-    template<std::size_t LEN>
-    BigIntegerImpl & fromString(const char (&str)[LEN], int radix = 10, bool * ok = nullptr); // 处理字面量
     // /* BigIntegerImpl & assign(const ExprTree & tree); */
     // BigIntegerImpl & assign(const StringArg & infixExpr, InfixExprMode mode, Status * status = nullptr);
    
@@ -67,9 +73,13 @@ public:
     // 获取从低位到高位从零开始数的补码形式的第n个32位
     std::uint32_t getU32(SizeType n) const;
 
-    // 获取真值形式的字符串形式 ################## 完善 #####################
+    // 获取字符串形式
     std::string toString(int radix) const;
     // std::string toTwosComplmentString() const; [useless]
+
+    // // 以追加方式获取字符串, 要求RESULT有 : <不限制返回值> append(const char * str, SizeType len)
+    // template<typename RESULT>
+    // RESULT & toStringAppend(RESULT & res, int radix) const; [useless]
 
     // // 获取位数
     // SizeType minimalBitNumber() const; // 二进制补码形式 [useless]
@@ -96,8 +106,8 @@ public:
     bool isEven() const;
 
     // 自增自减
-    // void inc(); ################
-    // void dec(); ################
+    void inc();
+    void dec();
 
     // 加减乘除
     void addAssign(std::int64_t i64);
@@ -162,6 +172,12 @@ private:
     static void mulKaratsuba(BigIntegerImpl & res, const BigIntegerImpl & a, const BigIntegerImpl & b);
     static void knuthDivImpl(BigIntegerImpl & q, BigIntegerImpl & r, const BigIntegerImpl & a, const BigIntegerImpl & b); // requires a > b
 
+    // get zeros-string
+    static const char * getZerosStr(int count);
+
+    // get digitsPerU64
+    static std::uint32_t getDigitCountPerU64(int radix);
+
     void divideAssignAndReminderByU32(std::uint32_t u32, BigIntegerImpl & r);
     void modAssignAndQuotientByU32(std::uint32_t u32, BigIntegerImpl & r);
 
@@ -178,6 +194,9 @@ private:
     void beOne();
     void beNegOne();
 
+    // 转化为uint64_t, 二进制补码形式, 截断
+    std::uint64_t toU64() const;
+
     std::vector<BigIntegerImpl> split(SizeType n, SizeType size) const;
 private:
     mutable Enum m_flags = BNFlag::ZERO; // flags : 约定: assign(除了copy)后flags只有符号标志位, 其他写操作或懒求值操作均是修改flags的位
@@ -185,14 +204,31 @@ private:
     mutable SizeType m_firstNotZeroU32IndexLazy = 0; // 从低位开始数的第一个不为0的U32的下标
 };
 
-inline void swap(BigIntegerImpl & a, BigIntegerImpl & b) noexcept {
-    a.swap(b);
+namespace detail {
+
+// 因为next出来的字符串是倒序的(除法取余, 先取到低位), 其实这个玩意没啥用, 唉, 算了, 留着吧
+class BigIntegerImplToStringHelper { // to help BigIntegerImpl::toString, 不帮助0
+public:
+    BigIntegerImplToStringHelper(const BigIntegerImpl & val, int radix)
+    : m_temp(val), m_radix(radix) {
+        constexpr int MIN_RADIX = 2;
+        constexpr int MAX_RADIX = 36;
+        PGZXB_DEBUG_ASSERT_EX("radix must in [2, 3,... ,36]", radix >= MIN_RADIX && radix <= MAX_RADIX);
+    }
+
+    bool hasNext() const { return !m_temp.flagsContains(BNFlag::ZERO) || m_index == 0; }
+    std::tuple<SizeType, const char *, SizeType> next(); // {index, str, len}, no leading zeros
+private:
+    SizeType m_index = 0;
+    BigIntegerImpl m_temp;
+    char m_buf[BigIntegerImpl::MAX_CHARS_PRE_DIGIT + 1] = { 0 };
+    const int m_radix;
+};
+
 }
 
-template<std::size_t LEN>
-inline BigIntegerImpl & BigIntegerImpl::fromString(const char (&str)[LEN], int radix, bool * ok) {
-    std::string temp(str, LEN - 1);
-    return fromString(temp.c_str(), radix, ok);
+inline void swap(BigIntegerImpl & a, BigIntegerImpl & b) noexcept {
+    a.swap(b);
 }
 
 PGBN_NAMESPACE_END

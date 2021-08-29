@@ -2,6 +2,7 @@
 #include "Status.h"
 #include "errInfos.h"
 
+#include <charconv>
 #include <limits>
 #include <cstring>
 
@@ -260,6 +261,25 @@ static inline void inc(Slice<std::uint32_t> & a) {
     }
 }
 
+// 将Slice表示的正整数自减, a有可能变成0
+static inline void dec(Slice<std::uint32_t> & a) {
+    PGZXB_DEBUG_ASSERT_EX("the size of a must be more than 0", a.count() > 0);
+
+    const SizeType alen = a.count();
+    SizeType i = 0;
+    bool borrow = true;
+    while (i < alen && borrow) {
+        borrow = (--a[i] == 0xffff'ffff);
+        ++i;
+    }
+
+    // 由于要求了正数, 此时不可能存在borrow为true的情况
+    PGZXB_DEBUG_ASSERT(!borrow);
+
+    // 去除前导零
+    eraseZerosSuffix(a);
+}
+
 // u32 -> string, 字符串是逆的, refer to http://www.strudel.org.uk/itoa/
 static inline std::string u32toa_reversed(std::uint32_t value, int base) {
  
@@ -290,7 +310,7 @@ static inline bool isPow2(std::uint64_t n) {
 
 // get bit-count from digit-count by radix
 static inline SizeType getBitCountByDigitCount(SizeType numDigits, int radix) {
-    static SizeType bitsPerDigit[] = { 
+    static constexpr SizeType bitsPerDigit[] = { 
            0,    0, 1024, 1624, 2048, // 0~4
         2378, 2648, 2875, 3072, 3247, // 5~9
         3402, 3543, 3672, 3790, 3899, // 10~14
@@ -307,36 +327,89 @@ static inline SizeType getBitCountByDigitCount(SizeType numDigits, int radix) {
     return ((numDigits * bitsPerDigit[radix]) >> 10) + 1;
 }
 
-// get digitsPerInt
-static inline std::uint32_t getDigitCountPerInt(int radix) {
+// get digitsPerU32
+static inline std::uint32_t getDigitCountPerU32(int radix) {
     // FIXME: Can be better
-    static std::uint32_t digitsPerInt[] = {0, 0, 30, 19, 15, 13, 11,
-        11, 10, 9, 9, 8, 8, 8, 8, 7, 7, 7, 7, 7, 7, 7, 6, 6, 6, 6,
-        6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 5};
+    static constexpr std::uint32_t digitsPerU32[] = {
+        0 , 0 , 30, 19, 15, // 0~4
+        13, 11, 11, 10, 9 , // 5~9
+        9 , 8 , 8 , 8 , 8 , // 10~14 
+        7 , 7 , 7 , 7 , 7 , // 15~19  
+        7 , 7 , 6 , 6 , 6 , // 20~24
+        6 , 6 , 6 , 6 , 6 , // 25~29  
+        6 , 6 , 6 , 6 , 6 , // 30~34
+        6 , 5               // 35~36
+    };
     constexpr int MIN_RADIX = 2;
     constexpr int MAX_RADIX = 36;
     PGZXB_DEBUG_ASSERT_EX("radix must in [2, 3,... ,36]", radix >= MIN_RADIX && radix <= MAX_RADIX);
 
-    return digitsPerInt[radix];
+    return digitsPerU32[radix];
 }
 
-// get block radix
-static inline std::uint32_t getBlockRadix(int radix) {
+// get uint32 block radix
+static inline std::uint32_t getU32BlockRadix(int radix) {
     // FIXME: Can be better
-    static std::uint32_t blockRadix[] = {0, 0,
-        0x40000000, 0x4546b3db, 0x40000000, 0x48c27395, 0x159fd800,
-        0x75db9c97, 0x40000000, 0x17179149, 0x3b9aca00, 0xcc6db61,
-        0x19a10000, 0x309f1021, 0x57f6c100, 0xa2f1b6f,  0x10000000,
-        0x18754571, 0x247dbc80, 0x3547667b, 0x4c4b4000, 0x6b5a6e1d,
-        0x6c20a40,  0x8d2d931,  0xb640000,  0xe8d4a51,  0x1269ae40,
-        0x17179149, 0x1cb91000, 0x23744899, 0x2b73a840, 0x34e63b41,
-        0x40000000, 0x4cfa3cc1, 0x5c13d840, 0x6d91b519, 0x39aa400
+    static constexpr std::uint32_t blockRadix[] = {
+        0x0       , 0x0       , 0x40000000, 0x4546b3db, 0x40000000, // 0~4
+        0x48c27395, 0x159fd800, 0x75db9c97, 0x40000000, 0x17179149, // 5~9
+        0x3b9aca00, 0xcc6db61 , 0x19a10000, 0x309f1021, 0x57f6c100, // 10~14
+        0xa2f1b6f , 0x10000000, 0x18754571, 0x247dbc80, 0x3547667b, // 15~19
+        0x4c4b4000, 0x6b5a6e1d, 0x6c20a40 ,  0x8d2d931,  0xb640000, // 20~24
+        0xe8d4a51 , 0x1269ae40, 0x17179149, 0x1cb91000, 0x23744899, // 25~29
+        0x2b73a840, 0x34e63b41, 0x40000000, 0x4cfa3cc1, 0x5c13d840, // 30~34
+        0x6d91b519, 0x39aa400                                       // 35~36
     };
     constexpr int MIN_RADIX = 2;
     constexpr int MAX_RADIX = 36;
     PGZXB_DEBUG_ASSERT_EX("radix must in [2, 3,... ,36]", radix >= MIN_RADIX && radix <= MAX_RADIX);
 
     return blockRadix[radix];
+}
+
+// get u64 block radix
+static inline const BigIntegerImpl & getU64BlockRadix(int radix) {
+    using B = BigIntegerImpl;
+    static const BigIntegerImpl u64BlockRadix[] = {
+        B(0x0)               , B(0x0)               , B(0x4000000000000000), B(0x383d9170b85ff80b), B(0x4000000000000000), // 0~4
+        B(0x6765c793fa10079d), B(0x41c21cb8e1000000), B(0x3642798750226111), B(0x1000000000000000), B(0x12bf307ae81ffd59), // 5~9
+        B(0xde0b6b3a7640000 ), B(0x4d28cb56c33fa539), B(0x1eca170c00000000), B(0x780c7372621bd74d), B(0x1e39a5057d810000), // 10~14
+        B(0x5b27ac993df97701), B(0x1000000000000000), B(0x27b95e997e21d9f1), B(0x5da0e1e53c5c8000), B(0xb16a458ef403f19 ), // 15~19
+        B(0x16bcc41e90000000), B(0x2d04b7fdd9c0ef49), B(0x5658597bcaa24000), B(0x6feb266931a75b7 ), B(0xc29e98000000000 ), // 20~24
+        B(0x14adf4b7320334b9), B(0x226ed36478bfa000), B(0x383d9170b85ff80b), B(0x5a3c23e39c000000), B(0x4e900abb53e6b71 ), // 25~29
+        B(0x7600ec618141000 ), B(0xaee5720ee830681 ), B(0x1000000000000000), B(0x172588ad4f5f0981), B(0x211e44f7d02c1000), // 30~34
+        B(0x2ee56725f06e5c71), B(0x41c21cb8e1000000)                                                                       // 35~36
+    };
+    constexpr int MIN_RADIX = 2;
+    constexpr int MAX_RADIX = 36;
+    PGZXB_DEBUG_ASSERT_EX("radix must in [2, 3,... ,36]", radix >= MIN_RADIX && radix <= MAX_RADIX);
+
+    return u64BlockRadix[radix];
+}
+
+static inline const char * getZerosStr(int count) {
+    PGZXB_DEBUG_ASSERT_EX("count must between 0 and 63", count >= 0 && count <= 63);
+    static const char * ZEROS63 = "000000000000000000000000000000000000000000000000000000000000000"/*\0*/;
+    return ZEROS63 + (63 - count);
+}
+
+static inline std::uint32_t getDigitCountPerU64(int radix) {
+    static constexpr std::uint32_t digitCountPerU64[] = {
+        0,  0, 62, 39, 31, // 0~4
+        27, 24, 22, 20, 19, // 5~9
+        18, 18, 17, 17, 16, // 10~14
+        16, 15, 15, 15, 14, // 15~19
+        14, 14, 14, 13, 13, // 20~24
+        13, 13, 13, 13, 12, // 25~29
+        12, 12, 12, 12, 12, // 30~34
+        12, 12              // 35~36
+    };
+
+    constexpr int MIN_RADIX = 2;
+    constexpr int MAX_RADIX = 36;
+    PGZXB_DEBUG_ASSERT_EX("radix must in [2, 3,... ,36]", radix >= MIN_RADIX && radix <= MAX_RADIX);
+
+    return digitCountPerU64[radix];
 }
 
 }
@@ -367,6 +440,10 @@ BigIntegerImpl::BigIntegerImpl(Slice<std::uint32_t> && slice, int signum) : m_ma
     if (m_mag.count() == 0) beZero();
 }
 
+BigIntegerImpl::BigIntegerImpl(const StringArg & str, int radix, bool * ok) {
+    fromString(str, radix, ok);
+}
+
 BigIntegerImpl::BigIntegerImpl(const void * bin, SizeType len, bool little) {
     assign(bin, len, little);
 }
@@ -394,7 +471,8 @@ BigIntegerImpl & BigIntegerImpl::assign(BigIntegerImpl && other) {
 }
 
 BigIntegerImpl & BigIntegerImpl::assign(std::int64_t i64) {
-    m_mag.cloneData();
+    beginWrite(); // free-cache
+    m_mag.cloneData(); // clone base-data
 
     if (i64 == 0) {
         m_flags = BNFlag::ZERO;
@@ -485,18 +563,14 @@ BigIntegerImpl & BigIntegerImpl::fromString(const StringArg & str, int radix, bo
         return *this;
     }
     // SizeType u32Cnt = (bitCnt + 31) / 32;
-    char * cStr = const_cast<char *>(str.data()); // 为了构造"子串", 也许有更好且保持速度的方法
-    char * endToCheck = nullptr;
-    char save = '\0';
+    const char * cStr = str.data(); // 为了构造"子串", 也许有更好且保持速度的方法
     
-    SizeType fistBlockDigitCnt = digitCnt % detail::getDigitCountPerInt(radix);
-    if (fistBlockDigitCnt == 0) fistBlockDigitCnt = detail::getDigitCountPerInt(radix);
+    SizeType fistBlockDigitCnt = digitCnt % detail:: getDigitCountPerU32(radix);
+    if (fistBlockDigitCnt == 0) fistBlockDigitCnt = detail:: getDigitCountPerU32(radix);
     
-    save = cStr[pos + fistBlockDigitCnt];
-    cStr[pos + fistBlockDigitCnt] = '\0';
-    std::uint32_t mag0 = util::cStrToU32(cStr + pos, &endToCheck, radix);
-    cStr[pos + fistBlockDigitCnt] = save;
-    if (endToCheck != cStr + pos + fistBlockDigitCnt) {
+    std::uint32_t mag0;
+    auto fistCov2U32Result = std::from_chars(cStr + pos, cStr + pos + fistBlockDigitCnt, mag0, radix);
+    if (fistCov2U32Result.ec != std::errc{}) { // to uint32_t出错
         GetGlobalStatus() = ErrCode::NUMBER_STRING_PARSE2NUM_ERROR;
         ok && (*ok = false);
         return *this;
@@ -504,16 +578,14 @@ BigIntegerImpl & BigIntegerImpl::fromString(const StringArg & str, int radix, bo
     pos += fistBlockDigitCnt;
     temp.m_mag.append(mag0);
 
-    const SizeType blockSize = detail::getDigitCountPerInt(radix);
-    SizeType blockRadix = detail::getBlockRadix(radix);
+    const SizeType blockSize = detail:: getDigitCountPerU32(radix);
+    SizeType blockRadix = detail::getU32BlockRadix(radix);
     std::uint32_t blockValue = 0;
     while (pos < slen) {
-        save = cStr[pos + blockSize];
-        cStr[pos + blockSize] = '\0';
-        blockValue = util::cStrToU32(cStr + pos, &endToCheck, radix);
-        cStr[pos + blockSize] = save;
-        if (endToCheck != cStr + pos + blockSize) {
+        auto toU32Result = std::from_chars(cStr + pos, cStr + pos + blockSize, blockValue, radix);
+        if (toU32Result.ec != std::errc{}) {
             GetGlobalStatus() = ErrCode::NUMBER_STRING_PARSE2NUM_ERROR;
+            ok && (*ok = false);
             return *this;
         }
         pos += blockSize;
@@ -531,6 +603,7 @@ BigIntegerImpl & BigIntegerImpl::fromString(const StringArg & str, int radix, bo
 
 BigIntegerImpl & BigIntegerImpl::assign(const void * bin, SizeType len, bool little) {
     PGZXB_DEBUG_PTR_NON_NULL_CHECK(bin);
+    beginWrite(); // free-cache
     m_mag.cloneData(); // clone, copy on write
 
     if (len == 0) { // 为0直接为ZERO
@@ -674,43 +747,70 @@ std::uint32_t BigIntegerImpl::getU32(SizeType n) const {
 }
 
 std::string BigIntegerImpl::toString(int radix) const {
-    PGZXB_DEBUG_ASSERT_EX("radix must between 2 and 16", radix >= 2 && radix <= 16); // 暂时只支持2到16进制
+    constexpr int MIN_RADIX = 2;
+    constexpr int MAX_RADIX = 36;
+    PGZXB_DEBUG_ASSERT_EX("radix must in [2, 3,... ,36]", radix >= MIN_RADIX && radix <= MAX_RADIX);
 
     if (flagsContains(BNFlag::ZERO)) return "0";
 
-    std::string res;
+    // /************************ 初步实现 *************************/
+    // std::string res;
+    // if (detail::isPow2(radix)) {
+    //     if (radix == 8) {
+    //         PGZXB_DEBUG_ASSERT_EX("Not Be Implemented!!", false);
+    //     }
+    //     std::uint32_t u32BitNumBaseRadixWhichIsPow2;
+    //     const SizeType lenMinu1 = m_mag.count() - 1;
+    //     switch (radix) {
+    //     case 2 :
+    //         u32BitNumBaseRadixWhichIsPow2 = 32; break;
+    //     case 4 :
+    //         u32BitNumBaseRadixWhichIsPow2 = 16; break;
+    //     case 16 :
+    //         u32BitNumBaseRadixWhichIsPow2 = 8; break;
+    //     default :
+    //         PGZXB_DEBUG_ASSERT_EX("Cannot Be Reached", false);
+    //     }
+    //     for (SizeType i = 0; i < lenMinu1; ++i) {
+    //         auto temp = detail::u32toa_reversed(m_mag[i], radix);
+    //         res.append(temp)
+    //            .append(u32BitNumBaseRadixWhichIsPow2 - temp.size(), '0');
+    //     }
+    //     res.append(detail::u32toa_reversed(m_mag[lenMinu1], radix));
+    //     if (flagsContains(BNFlag::NEGATIVE)) res.push_back('-');
+    //     std::reverse(res.begin(), res.end());
+    //     return res;
+    // } else {
+    //     PGZXB_DEBUG_ASSERT_EX("Not Be Implemented!!", false);
+    // }
+    // /***********************************************************/
 
-    if (detail::isPow2(radix)) {
-        if (radix == 8) {
-            PGZXB_DEBUG_ASSERT_EX("Not Be Implemented!!", false);
-        }
+    const SizeType digitCountPerU64 = detail::getDigitCountPerU64(radix);
+    std::vector<std::string> strs;
+    std::string res = flagsContains(BNFlag::NEGATIVE) ? "-" : "";
+    strs.reserve((4 * m_mag.count() + 6) / 7);
+    res.reserve(strs.size() * digitCountPerU64);
+    char buf[65] = { 0 };
 
-        std::uint32_t u32BitNumBaseRadixWhichIsPow2;
-        const SizeType lenMinu1 = m_mag.count() - 1;
-        switch (radix) {
-        case 2 :
-            u32BitNumBaseRadixWhichIsPow2 = 32; break;
-        case 4 :
-            u32BitNumBaseRadixWhichIsPow2 = 16; break;
-        case 16 :
-            u32BitNumBaseRadixWhichIsPow2 = 8; break;
-        default :
-            PGZXB_DEBUG_ASSERT_EX("Cannot Be Reached", false);
-        }
-        for (SizeType i = 0; i < lenMinu1; ++i) {
-            auto temp = detail::u32toa_reversed(m_mag[i], radix);
-            res.append(temp)
-               .append(u32BitNumBaseRadixWhichIsPow2 - temp.size(), '0');
-        }
-        res.append(detail::u32toa_reversed(m_mag[lenMinu1], radix));
-        if (flagsContains(BNFlag::NEGATIVE)) res.push_back('-');
-        std::reverse(res.begin(), res.end());
+    const BigIntegerImpl & blockRadix = detail::getU64BlockRadix(radix);
+    BigIntegerImpl r;
+    BigIntegerImpl temp(*this);
+    temp.abs();
 
-        return res;
-    } else {
-        PGZXB_DEBUG_ASSERT_EX("Not Be Implemented!!", false);
+    while (!temp.flagsContains(BNFlag::ZERO)) {
+        temp.divideAssignAndReminder(blockRadix, r);
+        std::uint64_t u64 = r.toU64();
+        auto toCharsResult = std::to_chars(buf, buf + (sizeof(buf) / sizeof(*buf)), u64, radix);
+        PGZXB_DEBUG_ASSERT(toCharsResult.ec == std::errc{});
+        strs.emplace_back(buf, toCharsResult.ptr - buf);
     }
 
+    res.append(strs.back());
+    for (auto iter = strs.end() - 2, start = strs.begin(); iter >= start; --iter) {
+        SizeType leadingZeroCount = digitCountPerU64 - iter->size();
+        res.append(detail::getZerosStr(leadingZeroCount), leadingZeroCount)
+           .append(*iter);
+    }
     return res;
 }
 
@@ -782,6 +882,34 @@ bool BigIntegerImpl::isEven() const {
     PGZXB_DEBUG_ASSERT(m_mag.count() > 0);
     std::uint32_t mag0 = m_mag[0];
     return (mag0 & 0x1) == 0;
+}
+
+void BigIntegerImpl::inc() {
+    beginWrite(); // free-cache FIXME: May Be Better
+    m_mag.cloneData(); // clone base-data
+
+    if (flagsContains(BNFlag::ZERO)) { beOne(); return; } // 0自增为1
+
+    if (flagsContains(BNFlag::POSITIVE)) { // 正数自增 -> mag自增 -> 为正数
+        detail::inc(m_mag);
+    } else { // 负数自增 -> mag自减 -> 为负数或0
+        detail::dec(m_mag);
+        if (m_mag.count() == 0) beZero();
+    }
+}
+
+void BigIntegerImpl::dec() {
+    beginWrite(); // free-cache FIXME: May Be Better
+    m_mag.cloneData(); // clone base-data
+
+    if (flagsContains(BNFlag::ZERO)) { beNegOne(); return; } // 0自减为-1
+
+    if (flagsContains(BNFlag::POSITIVE)) { // 正数自减 -> mag自减 -> 为正数或0
+        detail::dec(m_mag);
+        if (m_mag.count() == 0) beZero();
+    } else { // 负数自减 -> mag自增 -> 为负数
+        detail::inc(m_mag);
+    }
 }
 
 void BigIntegerImpl::addAssign(std::int64_t i64) {
@@ -1557,6 +1685,11 @@ void BigIntegerImpl::beNegOne() {
     detail::setBits(m_flags, BNFlag::FIRST_NZ_U32_INDEX_CALCUED);
 }
 
+std::uint64_t BigIntegerImpl::toU64() const {
+    constexpr std::uint64_t MASK = 0xffff'ffff;
+    return ((MASK & getU32(1)) << 32) | (MASK & getU32(0));
+}
+
 std::vector<BigIntegerImpl> BigIntegerImpl::split(SizeType n, SizeType size) const {
     PGZXB_DEBUG_ASSERT_EX("n * size must be more than m_mag.count()", n * size >= m_mag.count());
     std::vector<BigIntegerImpl> res;
@@ -1580,4 +1713,26 @@ std::vector<BigIntegerImpl> BigIntegerImpl::split(SizeType n, SizeType size) con
     PGZXB_DEBUG_ASSERT(n == res.size());
     
     return res;
+}
+
+// detail::BigIntegerImplToStringHelper::next's implement
+std::tuple<SizeType, const char *, SizeType> detail::BigIntegerImplToStringHelper::next() {
+    SizeType pos = 0;
+    if (m_index == 0) {
+        if (m_temp.flagsContains(BNFlag::ZERO)) return std::make_tuple(m_index++, "0", 1);
+        else {
+            if (m_temp.flagsContains(BNFlag::NEGATIVE)) m_buf[pos++] = '-';
+            m_temp.abs();
+        }
+    }
+
+    const BigIntegerImpl & blockRadix = detail::getU64BlockRadix(m_radix);
+    BigIntegerImpl r;
+    m_temp.divideAssignAndReminder(blockRadix, r);
+    std::uint64_t u64 = r.toU64();
+
+    auto toCharsResult = std::to_chars(m_buf + pos, m_buf + pos + (sizeof(m_buf) / sizeof(*m_buf)), u64, m_radix);
+    PGZXB_DEBUG_ASSERT(toCharsResult.ec == std::errc{});
+
+    return std::make_tuple(m_index++, m_buf, toCharsResult.ptr - m_buf);
 }

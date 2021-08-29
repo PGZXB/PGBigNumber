@@ -37,7 +37,7 @@ Status & Status::operator= (Enum no) noexcept {
     return *this;
 }
 
-Callback Status::getCallback() const {
+const Callback & Status::getCallback() const {
     return Status::getCallback(m_errno);
 }
 
