@@ -1,7 +1,5 @@
 include_directories(../include)
 
-add_subdirectory(infixExpr)
-
 file(GLOB test_src_files *.cpp)
 foreach(file ${test_src_files})
     set(file_name ${file})

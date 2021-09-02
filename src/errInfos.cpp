@@ -34,13 +34,16 @@ static void debugPrint(pg::Enum code, const char * info) {
 
 // err-infos
 const ErrInfo errInfos[] = {
-    { ErrCode::SUCCESS                      , "[PGBN-Status: OK]Success"                        , pgbn::detail::nullCallback      },
-    { ErrCode::DIVBY0                       , "[PGBN-Status: Error]Divide By Zero"              , pgbn::detail::processStatusExit },
-    { ErrCode::RADIX_INVALID                , "[PGBN-Status: Error]Radix Invalid"               , pgbn::detail::debugPrint        },
-    { ErrCode::NUMBER_STRING_EMPTY          , "[PGBN-Status: Error]Number String Empty"         , pgbn::detail::debugPrint        },
-    { ErrCode::NUMBER_STRING_SIG_INVALID    , "[PGBN-Status: Error]Number String Sig Invalid"   , pgbn::detail::debugPrint        },
-    { ErrCode::NUMBER_STRING_PARSE2NUM_ERROR, "[PGBN-Status: Error]Prase String To Number Error", pgbn::detail::debugPrint        },
-    { ErrCode::ARITHMETIC_OVERFLOW          , "[PGBN-Status: Error]Arithmetic Overflow"         , pgbn::detail::debugPrint        },
+    { ErrCode::SUCCESS                        , "[PGBN-Status: OK]Success"                        , pgbn::detail::nullCallback      },
+    { ErrCode::DIVBY0                         , "[PGBN-Status: Error]Divide By Zero"              , pgbn::detail::processStatusExit },
+    { ErrCode::RADIX_INVALID                  , "[PGBN-Status: Error]Radix Invalid"               , pgbn::detail::debugPrint        },
+    { ErrCode::NUMBER_STRING_EMPTY            , "[PGBN-Status: Error]Number String Empty"         , pgbn::detail::debugPrint        },
+    { ErrCode::NUMBER_STRING_SIG_INVALID      , "[PGBN-Status: Error]Number String Sig Invalid"   , pgbn::detail::debugPrint        },
+    { ErrCode::NUMBER_STRING_PARSE2NUM_ERROR  , "[PGBN-Status: Error]Prase String To Number Error", pgbn::detail::debugPrint        },
+    { ErrCode::ARITHMETIC_OVERFLOW            , "[PGBN-Status: Error]Arithmetic Overflow"         , pgbn::detail::debugPrint        },
+    { ErrCode::PARSE_INFIXEXPR_SHIFTOP_INVALID, "[PGBN-Status: Error]Shift-Operator Invalid"      , pgbn::detail::debugPrint        },
+    { ErrCode::PARSE_INFIXEXPR_CHAR_INVALID   , "[PGBN-Status: Error]Char Invalid"                , pgbn::detail::debugPrint        },
+    { ErrCode::PARSE_INFIXEXPR_NOTDEC_BUTREAL , "[PGBN-Status: Error]Not-Decimal But Real-Number" , pgbn::detail::debugPrint        },
 };
 const SizeType errInfoCount = sizeof(errInfos) / sizeof(*errInfos);
 

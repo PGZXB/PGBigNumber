@@ -202,6 +202,65 @@ inline void visitParamPackage(VISITOR visitor, ARGS && ... args) {
 //    return std::shared_ptr<NCType>(PGZXB_NEW<NCType>(std::forward<ARGS>(args)...), PGZXB_DELETE);
 //}
 
+namespace detail {
+
+struct TypeArrayInvalidDataType { };
+
+struct TypeArrayBaseInvalidType {
+    using Front = TypeArrayInvalidDataType;
+    using Other = TypeArrayBaseInvalidType;
+
+    static constexpr SizeType INDEX = static_cast<SizeType>(-1);
+};
+
+template <SizeType FINDEX, typename FIRST, typename ... OTHER>
+struct TypeArrayBase {
+    using Front = FIRST;
+    using Other = TypeArrayBase<FINDEX + 1, OTHER...>;
+
+    static constexpr SizeType INDEX = FINDEX;
+};
+
+template<SizeType FINDEX>
+struct TypeArrayBase<FINDEX, TypeArrayInvalidDataType> {
+    using Front = TypeArrayInvalidDataType;
+    using Other = TypeArrayBaseInvalidType;
+
+    static constexpr SizeType INDEX = FINDEX;
+};
+
+}
+
+template<typename ... TYPES>
+struct TypeArray {
+private:
+    using Base = detail::TypeArrayBase<0, TYPES..., detail::TypeArrayInvalidDataType>;
+    
+public:
+    static constexpr SizeType npos = static_cast<SizeType>(-1);
+
+    template<typename T>
+    static constexpr const SizeType index() {
+        return indexImpl<T, Base>();
+    }
+
+    static constexpr const SizeType size() {
+        return sizeof...(TYPES);
+    }
+
+private:
+    template<typename T, typename TAB>
+    static constexpr const SizeType indexImpl() {
+        if constexpr (std::is_same_v<TAB, detail::TypeArrayBaseInvalidType>)
+            return npos;
+
+        if constexpr (std::is_same_v<T, typename TAB::Front>)
+            return TAB::INDEX;
+
+        return indexImpl<T, typename TAB::Other>();
+    }
+};
+
 }
 PGZXB_ROOT_NAMESPACE_END
 #endif // PGZXB_PGFWD_H

@@ -36,7 +36,7 @@ pgbn::BigInteger::BigInteger(BigInteger && other) noexcept : m_pImpl(std::move(o
 // from POD-integer : only for int64_t
 pgbn::BigInteger::BigInteger(std::int64_t i) : m_pImpl(new BigIntegerImpl{i}) { }
 
-// from Human-String, don't support 'E', like 0|[1-9|A-F|a-f][0-9|A-F|a-f]*
+// from Human-String, don't support 'E', like 0|[1-9|A-Z|a-z][0-9|A-Z|a-z]*
 pgbn::BigInteger::BigInteger(const pgbn::StringArg & str, int radix, bool * ok)
     : m_pImpl(new BigIntegerImpl{str, radix, ok}) { }
 
@@ -271,6 +271,7 @@ int pgbn::BigInteger::cmp(const BigInteger & other) const { return m_pImpl->cmp(
 // pgbn::BigInteger::operator bool() const { return !m_pImpl->flagsContains(BNFlag::ZERO); }
 
 // +, -, *, /, %, &, |, ^ : friend-functions, make from op-ass operators
+// FIXME: Can Be Better(mul and div)
 pgbn::BigInteger pgbn::operator+ (const BigInteger & left, const BigInteger & right) { return BigInteger(left) += right; }
 pgbn::BigInteger pgbn::operator+ (const BigInteger & left, std::int64_t right)       { return BigInteger(left) += right; }
 pgbn::BigInteger pgbn::operator+ (std::int64_t left, const BigInteger & right)       { return BigInteger(left) += right; }

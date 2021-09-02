@@ -29,12 +29,12 @@ public:
     // from POD-integer : only for int64_t
     explicit BigInteger(std::int64_t i);
 
-    // from Human-String, don't support 'E', like 0|[1-9|A-F|a-f][0-9|A-F|a-f]*
+    // from Human-String, don't support 'E', like 0|[1-9|A-Z|a-z][0-9|A-Z|a-z]*
     explicit BigInteger(const StringArg & str, int radix = 10, bool * ok = nullptr);
 
     // from infix-expression, like "2021 ^ 23333 + (23! * (2^3 - 3))",
-    // support +, -, *, /(floor-div), !(fact), ^(pow), (, ), &(and), |(or), ^(xor), ~(not),
-    //         and self-defined-operators
+    // support +, -, *, /(floor-div), !(fact), **(pow), (, ), &(and), |(or), ^(xor), ~(not),
+    //         and some-builtin-functions
     /* BigInteger(const ExprTree & tree); */
     // BigInteger(const StringArg & infixExpr, InfixExprMode mode, Status * status = nullptr);  // 最后再实现
 
@@ -210,6 +210,9 @@ bool operator> (std::int64_t left, const BigInteger & right);
 bool operator>= (const BigInteger & left, const BigInteger & right);
 bool operator>= (const BigInteger & left, std::int64_t right);
 bool operator>= (std::int64_t left, const BigInteger & right);
+
+// hash
+// TODO: std::hash
 
 PGBN_NAMESPACE_END
 #endif //PGBIGNUMBER_BIGINTEGER_H

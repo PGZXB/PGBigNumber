@@ -1,7 +1,7 @@
 #ifndef PGBIGNUMBER_STATUS_H
 #define PGBIGNUMBER_STATUS_H
 
-#include "../include/PGBigNumber/fwd.h"
+#include "fwd.h"
 PGBN_NAMESPACE_START
 // 用来存放执行状态(错误码)的类
 // 允许注册错误码和提示信息
