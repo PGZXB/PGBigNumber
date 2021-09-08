@@ -227,4 +227,14 @@ inline void swap(BigIntegerImpl & a, BigIntegerImpl & b) noexcept {
 }
 
 PGBN_NAMESPACE_END
+
+namespace pg::util::stringUtil::__IN_fmtUtil {
+    template<>
+    inline std::string transToString<pgbn::BigIntegerImpl>(const pgbn::BigIntegerImpl & ele, const std::string & limit) {
+        auto radix = std::atoi(limit.c_str());
+        if (radix < 2 || radix > 36) radix = 10;
+        return ele.toString(radix);
+    }
+}
+
 #endif // !PGBIGNUMBER_BIGINTEGERIMPL_H
