@@ -46,8 +46,8 @@ public:
     BigIntegerImpl(const void * bin, SizeType len, bool little = true);
 
     // 禁用赋值运算符
-    BigIntegerImpl & operator= (const BigIntegerImpl & other) = delete; // Impl尽量提供简单的接口,
-    BigIntegerImpl & operator= (BigIntegerImpl && other) = delete;      // 尽量不以操作符的方式提供API
+    BigIntegerImpl & operator= (const BigIntegerImpl & other);
+    BigIntegerImpl & operator= (BigIntegerImpl && other) noexcept;
 
     // 赋值
     BigIntegerImpl & assign(const BigIntegerImpl & other); // Impl尽量提供简单的接口,

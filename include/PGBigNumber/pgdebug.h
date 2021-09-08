@@ -204,8 +204,12 @@ namespace pg::util::stringUtil::__IN_fmtUtil {
         )
             res.append( transToString(*iter, NULL_STRING) ).append(", ");  // useless second-param
 
-        res.pop_back();
-        res.back() = ']';
+        if (res.size() > 1) {
+            res.pop_back();
+            res.back() = ']';
+        } else {
+            res.push_back(']');
+        }
         return res;
     }
 

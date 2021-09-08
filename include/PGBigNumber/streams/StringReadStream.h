@@ -72,15 +72,11 @@ public:
     }
 
     char peek() const {
-        PGZXB_DEBUG_ASSERT_EX("EOF!!", !eof());
-
-        return *m_current;
+        return eof() ? 0 : *m_current;
     }
 
     char get() {
-        PGZXB_DEBUG_ASSERT_EX("EOF!!", !eof());
-
-        return *(m_current++);
+        return eof() ? 0 : *(m_current++);
     }
 
     SizeType tell() {

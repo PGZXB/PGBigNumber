@@ -448,6 +448,14 @@ BigIntegerImpl::BigIntegerImpl(const void * bin, SizeType len, bool little) {
     assign(bin, len, little);
 }
 
+BigIntegerImpl & BigIntegerImpl::operator= (const BigIntegerImpl & other) {
+    return assign(other);
+}
+
+BigIntegerImpl & BigIntegerImpl::operator= (BigIntegerImpl && other) noexcept {
+    return assign(other);
+}
+
 BigIntegerImpl & BigIntegerImpl::assign(const BigIntegerImpl & other) { // 浅拷贝
     if (this == &other) return *this;
 
