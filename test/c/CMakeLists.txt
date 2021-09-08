@@ -1,0 +1,10 @@
+set(CMAKE_C_STANDARD 11)
+
+file(GLOB test_src_files *.c)
+foreach(file ${test_src_files})
+    set(file_name ${file})
+    string(REGEX REPLACE ".+/(.+)\\..*" "\\1" file_name ${file})
+    project(${file_name}_C)
+    add_executable(${file_name}_C ${file})
+    target_link_libraries(${file_name}_C PGBigNumberBindingC)
+endforeach(file)

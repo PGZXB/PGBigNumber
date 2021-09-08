@@ -9,6 +9,7 @@ add_definitions(-DPGBN_DEBUG)
 add_definitions(-DPGZXB_DEBUG)
 add_definitions(-Wall)
 add_subdirectory(test)
+add_subdirectory(c)
 include_directories(include)
 
 file(GLOB_RECURSE  src_files src/*.cpp)

@@ -1,5 +1,6 @@
 include_directories(../include)
 
+add_subdirectory(c)
 add_subdirectory(infixExpr)
 
 file(GLOB test_src_files *.cpp)
