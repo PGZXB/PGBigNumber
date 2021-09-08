@@ -31,9 +31,36 @@ class Variant : public std::variant<TYPES...> {
     using Base = std::variant<TYPES...>;
     using Types = util::TypeArray<TYPES...>;
 public:
-    using Base::Base;
+    Variant() = default;
+    Variant(const Variant &) = default;
+    Variant(Variant &&) noexcept = default;
 
-    using Base::operator=;
+    template <typename T>
+    Variant(T && t) : Base() {
+        Base * baseThis = this;
+        baseThis->template emplace<T>(std::forward<T>(t));
+    }
+
+    template <typename T>
+    Variant & operator=(T && t) {
+        Base * const baseThis = this;
+        baseThis->template emplace<T>(std::forward<T>(t));
+        return *this;
+    }
+
+    Variant & operator=(const Variant & other) {
+        Base * baseThis = this;
+        const Base & baseOther = other;
+        baseThis->operator=(baseOther);
+        return *this;
+    }
+
+    Variant & operator=(Variant && other) {
+        Base * baseThis = this;
+        Base & baseOther = other;
+        baseThis->operator=(std::move(baseOther));
+        return *this;
+    }
 
     template<typename T>
     bool is() const {
@@ -50,16 +77,33 @@ public:
         return std::get<T>(*this);
     }
 
-    ~Variant() {
-        (*static_cast<Base*>(this)).~Base();
-    }
+    ~Variant() = default;
 };
 
-using Value = Variant<pgbn::BigIntegerImpl, std::uint64_t>;
-
+using Value = BigIntegerImpl;
 using UnaryFunc = std::function<Value(const Value &)>;
 using BinaryFunc = std::function<Value(const Value &, const Value &)>;
 using Func = Variant<UnaryFunc, BinaryFunc>;
+
+struct Hooks {
+    std::function<bool(Value &, int radix, const std::string &, const std::string &)> literal2Value = 
+        [] (Value & result, int radix, const std::string & literalBeforeDot, const std::string &) -> bool {
+            static_assert(std::is_same_v<Value, BigIntegerImpl>);
+            bool ok = true;
+            result.fromString(literalBeforeDot, radix, &ok);
+            return ok;
+        };
+
+    static Hooks * getInstance();
+
+private:
+    Hooks() = default;
+    Hooks(const Hooks &) = delete;
+    Hooks(Hooks &&) noexcept = delete;
+
+    Hooks & operator=(const Hooks &) = delete;
+    Hooks & operator=(Hooks &&) noexcept = delete;
+};
 
 PGBN_INFIXEXPR_NAMESPACE_END
 #endif // !PGBIGNUMBER_INFIXEXPR_FWD_H

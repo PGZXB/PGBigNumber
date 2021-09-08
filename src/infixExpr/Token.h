@@ -2,9 +2,28 @@
 #define PGBIGNUMBER_INFIXEXPR_TOKEN_H
 
 #include "fwd.h"
+#include "ObjectManager.h"
 #include "../errInfos.h"
 #include <cctype>
 PGBN_INFIXEXPR_NAMESPACE_START
+
+namespace detail { using Symbol = Variant<std::monostate, Func, Value>; }
+
+class SymbolTable : public ObjectManager<detail::Symbol> {
+    using Base = ObjectManager<detail::Symbol>;
+private:
+    using Base::Base;
+    using Base::operator=;
+
+public:
+    using Symbol = detail::Symbol;
+
+    static SymbolTable * getInstance() {
+        static SymbolTable ins;
+
+        return &ins;
+    }
+};
 
 enum class TokenType : Enum {
     INVALID = 0,     // invalid token
@@ -17,7 +36,7 @@ enum class TokenType : Enum {
     AND,             // &
     OR,              // |
     XOR,             // ^
-    NOT,             // !
+    NOT,             // ~
     SHIFTRIGHT,      // >>
     SHIFTLEFT,       // <<
     BUILTINFUNC,     // <func-name>(<args-list>)
@@ -25,13 +44,13 @@ enum class TokenType : Enum {
     LITERAL,         // literal : BigInteger(Impl), Fraction(Impl) or Union{ BigInteger(Impl), Fraction(Impl) }
     LEFTBRACKET,     // '('
     RIGHTBRACKET,    // ')'
+    COMMA,           // ,
 };
 
 struct Token {
-    struct Invalid {};
-
     TokenType type;
-    Variant<Func, Value, Invalid> val{Invalid{}};
+    SymbolTable::Symbol * pSymbol = nullptr;
+    Value val;
 #ifdef PGBN_DEBUG
     std::string debugInfo;
 #endif
@@ -63,6 +82,7 @@ inline std::vector<Token> tokenizer(STREAM & stream) {
         auto & currToken = res.back();
         auto & tokenType = currToken.type;
         auto & tokenVal = currToken.val;
+        auto & tokenPSymbol = currToken.pSymbol;
 
 #ifdef PGBN_DEBUG
         #define SET_TOKEN_DEBUG_INFO(info) currToken.debugInfo = (info);
@@ -109,6 +129,10 @@ inline std::vector<Token> tokenizer(STREAM & stream) {
             tokenType = TokenType::XOR;
             SET_TOKEN_DEBUG_INFO("^");
             break;
+        case '~' :
+            tokenType = TokenType::NOT;
+            SET_TOKEN_DEBUG_INFO("~");
+            break;
         case '>' :
             if (stream.peek() == '>') {
                 stream.get();
@@ -116,8 +140,9 @@ inline std::vector<Token> tokenizer(STREAM & stream) {
                 SET_TOKEN_DEBUG_INFO(">>");
             } else {
                 GetGlobalStatus() = ErrCode::PARSE_INFIXEXPR_SHIFTOP_INVALID;
-                return {};
+                return res;
             }
+            break;
         case '<' :
             if (stream.peek() == '<') {
                 stream.get();
@@ -125,8 +150,9 @@ inline std::vector<Token> tokenizer(STREAM & stream) {
                 SET_TOKEN_DEBUG_INFO("<<");
             } else {
                 GetGlobalStatus() = ErrCode::PARSE_INFIXEXPR_SHIFTOP_INVALID;
-                return {};
+                return res;
             }
+            break;
         case '(' :
             tokenType = TokenType::LEFTBRACKET;
             SET_TOKEN_DEBUG_INFO("(");
@@ -134,6 +160,10 @@ inline std::vector<Token> tokenizer(STREAM & stream) {
         case ')' :
             tokenType = TokenType::RIGHTBRACKET;
             SET_TOKEN_DEBUG_INFO(")");
+            break;
+        case ',' :
+            tokenType = TokenType::COMMA;
+            SET_TOKEN_DEBUG_INFO(",");
             break;
         default :
             if (std::isdigit(ch)) { // 字面量
@@ -175,7 +205,7 @@ inline std::vector<Token> tokenizer(STREAM & stream) {
                             literalBeforeDot.push_back(ch);
                         if (ch == '.') {
                             GetGlobalStatus() = ErrCode::PARSE_INFIXEXPR_NOTDEC_BUTREAL;
-                            return {};
+                            return res;
                         }
                     }
                 } else {
@@ -190,29 +220,69 @@ inline std::vector<Token> tokenizer(STREAM & stream) {
 
                 }
 
+                if (!(radix >= 2 && radix <= 36)) {
+                    GetGlobalStatus() = ErrCode::PARSE_INFIXEXPR_RADIX_INVALID;
+                    return res;
+                }
+
                 tokenType = TokenType::LITERAL;
-                SET_TOKEN_DEBUG_INFO("Literval(Base " + std::to_string(radix) + ") : " + literalBeforeDot + "." + literalAfterDot);
-                // TODO:  解析数字设置Token的val
+                tokenVal = Value{};
+                if (!Hooks::getInstance()->literal2Value(tokenVal, radix, literalBeforeDot, literalAfterDot)) {
+                    GetGlobalStatus() = ErrCode::PARSE_INFIXEXPR_LITERAL2NUM_ERROR;
+                    return res;
+                }
+                SET_TOKEN_DEBUG_INFO(pgfmt::format("Literval(Base {0}) : {1}.{2} (Value : {3})", radix, literalBeforeDot, literalAfterDot, tokenVal));
             } else if (std::isalpha(ch) || ch == '_') { // 内建常量或内建函数
-                std::string sysmbolName;
-                sysmbolName.push_back(ch);
+                std::string symbolName;
+                symbolName.push_back(ch);
 
                 for (ch = stream.peek(); std::isalnum(ch) || ch == '_'; stream.get(), ch = stream.peek())
-                    sysmbolName.push_back(ch);
+                    symbolName.push_back(ch);
 
-                tokenType = TokenType::BUILTINCONSTANT;
-                SET_TOKEN_DEBUG_INFO("Builtin Sysmbol : " + sysmbolName);
-                // token = TokenType::BUILTINFUNC;
-                // TODO: 去SysmbolTable中查找符号设置Token的val
+                SymbolTable::Symbol * pSymbol = SymbolTable::getInstance()->get(symbolName);
+                if (pSymbol == nullptr) { // UndefinedSymbol
+                    GetGlobalStatus() = ErrCode::PARSE_INFIXEXPR_SYMBOL_UNDEFINED;
+                    return res;
+                } else {
+                    if (pSymbol->is<Func>()) tokenType = TokenType::BUILTINFUNC;
+                    else if (pSymbol->is<Value>()) tokenType = TokenType::BUILTINCONSTANT;
+                    else { // InvalidBuiltinSymbol
+                        GetGlobalStatus() = ErrCode::PARSE_INFIXEXPR_BUILTIN_SYMBOL_INVALID;
+                        return res;
+                    }
+                    tokenPSymbol = pSymbol;
+                }
+                SET_TOKEN_DEBUG_INFO(pgfmt::format("Builtin Symbol({0}) : {1} (Symbol : {2})",
+                    tokenType == TokenType::BUILTINFUNC ? std::string("Function", 8) : std::string("Constant", 8),
+                    symbolName,
+                    *tokenPSymbol
+                ));
             } else {
                 GetGlobalStatus() = ErrCode::PARSE_INFIXEXPR_CHAR_INVALID;
-                return {};
+                return res;
             }
+            break;
         }
     }
-    
+
+#undef SET_TOKEN_DEBUG_INFO
     return res;
 }
 
 PGBN_INFIXEXPR_NAMESPACE_END
+
+namespace pg::util::stringUtil::__IN_fmtUtil {
+    template<>
+    inline std::string transToString<pgbn::infixExpr::detail::Symbol>(const pgbn::infixExpr::detail::Symbol & ele, const std::string &) {
+        using namespace pgbn::infixExpr;
+        if (ele.is<Func>()) {
+            return "@BuiltinFunction";
+        } else if (ele.is<Value>()) {
+            return transToString(ele.as<Value>(), "");
+        }
+
+        return "<default-string>";
+    }
+}
+
 #endif // !PGBIGNUMBER_INFIXEXPR_TOKEN_H

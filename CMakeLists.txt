@@ -11,7 +11,7 @@ add_definitions(-Wall)
 add_subdirectory(test)
 include_directories(include)
 
-file(GLOB src_files src/*.cpp)
+file(GLOB_RECURSE  src_files src/*.cpp)
 
 # find_file(MAIN_FILE_PATH main.cpp ./src/)
 # message("main.cpp path : " ${MAIN_FILE_PATH})
