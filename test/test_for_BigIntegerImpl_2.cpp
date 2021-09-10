@@ -1,6 +1,7 @@
 #include "../src/BigIntegerImpl.h"
 #include <algorithm>
 #include <iostream>
+#include <bitset>
 
 using namespace pgbn;
 

@@ -206,8 +206,8 @@ class BigIntegerImplToStringHelper { // to help BigIntegerImpl::toString, 不帮
 public:
     BigIntegerImplToStringHelper(const BigIntegerImpl & val, int radix)
     : m_temp(val), m_radix(radix) {
-        constexpr int MIN_RADIX = 2;
-        constexpr int MAX_RADIX = 36;
+        constexpr int MIN_RADIX = 2; PGZXB_UNUSED(MIN_RADIX);
+        constexpr int MAX_RADIX = 36; PGZXB_UNUSED(MAX_RADIX);
         PGZXB_DEBUG_ASSERT_EX("radix must in [2, 3,... ,36]", radix >= MIN_RADIX && radix <= MAX_RADIX);
     }
 

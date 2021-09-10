@@ -1,3 +1,5 @@
+#include <iostream>
+#include <bitset>
 #include <sstream>
 #define private public
 #include "../src/BigIntegerImpl.h"

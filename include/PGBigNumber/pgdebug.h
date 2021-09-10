@@ -20,10 +20,10 @@
 #else
 
 #define PGZXB_DEBUG_INFO_HEADER ""
-#define PGZXB_DEBUG_Print(msg) PGZXB_UNUSED(val)
+#define PGZXB_DEBUG_Print(msg) PGZXB_UNUSED(msg)
 #define PGZXB_DEBUG_PrintVar(val) PGZXB_UNUSED(val)
 #define PGZBX_DEBUG_PrintBin(val) PGZXB_UNUSED(val)
-#define PGZXB_DEBUG_CallFunc(func) PGZXB_UNUSED(val)
+#define PGZXB_DEBUG_CallFunc(func) PGZXB_UNUSED(func)
 
 #endif
 

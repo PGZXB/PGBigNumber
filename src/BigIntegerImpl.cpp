@@ -320,8 +320,8 @@ static inline SizeType getBitCountByDigitCount(SizeType numDigits, int radix) {
         5025, 5074, 5120, 5166, 5210, // 30~34
         5253, 5295                    // 35~36
     };
-    constexpr int MIN_RADIX = 2;
-    constexpr int MAX_RADIX = 36;
+    constexpr int MIN_RADIX = 2; PGZXB_UNUSED(MIN_RADIX);
+    constexpr int MAX_RADIX = 36; PGZXB_UNUSED(MAX_RADIX);
     PGZXB_DEBUG_ASSERT_EX("radix must in [2, 3,... ,36]", radix >= MIN_RADIX && radix <= MAX_RADIX);
 
     return ((numDigits * bitsPerDigit[radix]) >> 10) + 1;
@@ -340,8 +340,8 @@ static inline std::uint32_t getDigitCountPerU32(int radix) {
         6 , 6 , 6 , 6 , 6 , // 30~34
         6 , 5               // 35~36
     };
-    constexpr int MIN_RADIX = 2;
-    constexpr int MAX_RADIX = 36;
+    constexpr int MIN_RADIX = 2; PGZXB_UNUSED(MIN_RADIX);
+    constexpr int MAX_RADIX = 36; PGZXB_UNUSED(MAX_RADIX);
     PGZXB_DEBUG_ASSERT_EX("radix must in [2, 3,... ,36]", radix >= MIN_RADIX && radix <= MAX_RADIX);
 
     return digitsPerU32[radix];
@@ -360,8 +360,8 @@ static inline std::uint32_t getU32BlockRadix(int radix) {
         0x2b73a840, 0x34e63b41, 0x40000000, 0x4cfa3cc1, 0x5c13d840, // 30~34
         0x6d91b519, 0x39aa400                                       // 35~36
     };
-    constexpr int MIN_RADIX = 2;
-    constexpr int MAX_RADIX = 36;
+    constexpr int MIN_RADIX = 2; PGZXB_UNUSED(MIN_RADIX);
+    constexpr int MAX_RADIX = 36; PGZXB_UNUSED(MAX_RADIX);
     PGZXB_DEBUG_ASSERT_EX("radix must in [2, 3,... ,36]", radix >= MIN_RADIX && radix <= MAX_RADIX);
 
     return blockRadix[radix];
@@ -380,8 +380,8 @@ static inline const BigIntegerImpl & getU64BlockRadix(int radix) {
         B(0x7600ec618141000 ), B(0xaee5720ee830681 ), B(0x1000000000000000), B(0x172588ad4f5f0981), B(0x211e44f7d02c1000), // 30~34
         B(0x2ee56725f06e5c71), B(0x41c21cb8e1000000)                                                                       // 35~36
     };
-    constexpr int MIN_RADIX = 2;
-    constexpr int MAX_RADIX = 36;
+    constexpr int MIN_RADIX = 2; PGZXB_UNUSED(MIN_RADIX);
+    constexpr int MAX_RADIX = 36; PGZXB_UNUSED(MAX_RADIX);
     PGZXB_DEBUG_ASSERT_EX("radix must in [2, 3,... ,36]", radix >= MIN_RADIX && radix <= MAX_RADIX);
 
     return u64BlockRadix[radix];
@@ -405,8 +405,8 @@ static inline std::uint32_t getDigitCountPerU64(int radix) {
         12, 12              // 35~36
     };
 
-    constexpr int MIN_RADIX = 2;
-    constexpr int MAX_RADIX = 36;
+    constexpr int MIN_RADIX = 2; PGZXB_UNUSED(MIN_RADIX);
+    constexpr int MAX_RADIX = 36; PGZXB_UNUSED(MAX_RADIX);
     PGZXB_DEBUG_ASSERT_EX("radix must in [2, 3,... ,36]", radix >= MIN_RADIX && radix <= MAX_RADIX);
 
     return digitCountPerU64[radix];
@@ -755,8 +755,8 @@ std::uint32_t BigIntegerImpl::getU32(SizeType n) const {
 }
 
 std::string BigIntegerImpl::toString(int radix) const {
-    constexpr int MIN_RADIX = 2;
-    constexpr int MAX_RADIX = 36;
+    constexpr int MIN_RADIX = 2; PGZXB_UNUSED(MIN_RADIX);
+    constexpr int MAX_RADIX = 36; PGZXB_UNUSED(MAX_RADIX);
     PGZXB_DEBUG_ASSERT_EX("radix must in [2, 3,... ,36]", radix >= MIN_RADIX && radix <= MAX_RADIX);
 
     if (flagsContains(BNFlag::ZERO)) return "0";
