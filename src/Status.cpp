@@ -45,6 +45,10 @@ const std::string & Status::getInfo() const {
     return Status::getInfo(m_errno);
 }
 
+void Status::setContext(const std::any & context) {
+    m_context = context;
+}
+
 // static functions
 Status * Status::getInstance() {
     static thread_local Status s_ins;

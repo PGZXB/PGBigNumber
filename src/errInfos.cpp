@@ -1,8 +1,4 @@
 #include "errInfos.h"
-
-#undef PGZXB_DEBUG_INFO_HEADER
-#define PGZXB_DEBUG_INFO_HEADER "[DEBUG] "
-
 #include <cstdio>
 
 // struct ErrInfo {
@@ -15,7 +11,7 @@ PGBN_NAMESPACE_START
 namespace detail {
 
 static inline void printErrInfo(pg::Enum code, const char * info) {
-    std::fprintf(stderr, "[%" PRI_ENUM "]%s\n", code, info);
+    std::fprintf(stderr, "[Error][%" PRI_ENUM "]%s\n", code, info);
 }
 
 static void nullCallback(pg::Enum, const char *) {
@@ -27,7 +23,7 @@ static void processStatusExit(pg::Enum code, const char * info) {
 }
 
 static void debugPrint(pg::Enum code, const char * info) {
-    PGZXB_DEBUG_Print(pgfmt::format("[{0}]{1}", code, info));
+    std::fprintf(stderr, "%s", pgfmt::format("[Error][{0}]{1}\n", code, info).c_str());
 }
 
 }
@@ -48,6 +44,8 @@ const ErrInfo errInfos[] = {
     { ErrCode::PARSE_INFIXEXPR_BUILTIN_SYMBOL_INVALID , "[PGBN-Status: Error]Builtin Sysmbol Is Invalid"             , pgbn::detail::debugPrint        },
     { ErrCode::PARSE_INFIXEXPR_RADIX_INVALID          , "[PGBN-Status: Error]Radix Invalid(Requires 2~36)"           , pgbn::detail::debugPrint        },
     { ErrCode::PARSE_INFIXEXPR_LITERAL2NUM_ERROR      , "[PGBN-Status: Error]Parse Literal To Number Error"          , pgbn::detail::debugPrint        },
+    { ErrCode::PARSE_INFIXEXPR_EQU_INVALID            , "[PGBN-Status: Error]Expected =="                            , pgbn::detail::debugPrint        },
+    { ErrCode::PARSE_INFIXEXPR_BAD_TOKEN              , "[PGBN-Status: Error]Bad Token"                              , pgbn::detail::debugPrint        }
 }; 
 const SizeType errInfoCount = sizeof(errInfos) / sizeof(*errInfos);
 

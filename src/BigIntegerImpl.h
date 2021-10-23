@@ -30,8 +30,8 @@ public:
     // 构造
     BigIntegerImpl();
 
-    explicit BigIntegerImpl(const BigIntegerImpl & other); // 浅拷贝
-    explicit BigIntegerImpl(BigIntegerImpl && other) noexcept; // 浅拷贝
+    BigIntegerImpl(const BigIntegerImpl & other); // 浅拷贝
+    BigIntegerImpl(BigIntegerImpl && other) noexcept; // 浅拷贝
 
     // from int64
     BigIntegerImpl(std::int64_t i64);
@@ -92,6 +92,9 @@ public:
     // flags
     bool flagsContains(BNFLAG Enum flags) const;
     bool flagsEquals(BNFLAG Enum flags) const;
+
+    // isZero
+    bool isZero() const;
 
     // isOne
     bool isOne() const;

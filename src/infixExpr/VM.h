@@ -1,0 +1,11 @@
+#ifndef PGBIGNUMBER_INFIXEXPR_VM_H
+#define PGBIGNUMBER_INFIXEXPR_VM_H
+
+#include "fwd.h"
+PGBN_INFIXEXPR_NAMESPACE_START
+
+// 基于栈的虚拟机
+class VM { };
+
+PGBN_INFIXEXPR_NAMESPACE_END
+#endif

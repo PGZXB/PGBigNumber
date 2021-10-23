@@ -2,28 +2,10 @@
 #define PGBIGNUMBER_INFIXEXPR_TOKEN_H
 
 #include "fwd.h"
-#include "ObjectManager.h"
+#include "SymbolTable.h"
 #include "../errInfos.h"
 #include <cctype>
 PGBN_INFIXEXPR_NAMESPACE_START
-
-namespace detail { using Symbol = Variant<std::monostate, Func, Value>; }
-
-class SymbolTable : public ObjectManager<detail::Symbol> {
-    using Base = ObjectManager<detail::Symbol>;
-private:
-    using Base::Base;
-    using Base::operator=;
-
-public:
-    using Symbol = detail::Symbol;
-
-    static SymbolTable * getInstance() {
-        static SymbolTable ins;
-
-        return &ins;
-    }
-};
 
 enum class TokenType : Enum {
     INVALID = 0,     // invalid token
@@ -45,36 +27,38 @@ enum class TokenType : Enum {
     LEFTBRACKET,     // '('
     RIGHTBRACKET,    // ')'
     COMMA,           // ,
+    MOD,             // %
+    EQU,             // ==
+    NEQU,            // !=
+    LT,              // <
+    LE,              // <=
+    GT,              // >
+    GE,              // >=
+    QMARK,           // ?
+    COLON,           // :
+    TAIL
 };
+
+struct ExprNode;
 
 struct Token {
     TokenType type;
     SymbolTable::Symbol * pSymbol = nullptr;
     Value val;
+    ExprNode * nptr;
 #ifdef PGBN_DEBUG
     std::string debugInfo;
 #endif
 };
 
-namespace detail {
-    template<typename STREAM>
-    void skipWhiteChar(STREAM & stream) {
-        // ' ' '\n' '\r' '\t'
-        char ch = stream.peek();
-        while (ch == 0 || ch == ' ' || ch == '\r' || ch == '\n' || ch == '\t') {
-            stream.get();
-            ch = stream.peek();
-        }
-    }
-}
-
+// FIXME: Support SelfDefined-Hooks
 template<typename STREAM>
-inline std::vector<Token> tokenizer(STREAM & stream) {
+inline std::vector<Token> tokenizer(STREAM & stream, const Hooks & hooks) { // FIXME: vector<Token> -> Lazy-Calcu(getNextToken)
     std::vector<Token> res;
 
     while (!stream.eof()) {
         // 跳过空白符
-        detail::skipWhiteChar(stream);
+        utils::skipWhiteChar(stream);
 
         // 解析
         char ch = stream.get();
@@ -113,9 +97,19 @@ inline std::vector<Token> tokenizer(STREAM & stream) {
             tokenType = TokenType::DIV;
             SET_TOKEN_DEBUG_INFO("/");
             break;
+        case '%' :
+            tokenType = TokenType::MOD;
+            SET_TOKEN_DEBUG_INFO("%");
+            break;
         case '!' :
-            tokenType = TokenType::FACT;
-            SET_TOKEN_DEBUG_INFO("!");
+            if (stream.peek() == '=') {
+                stream.get();
+                tokenType = TokenType::NEQU;
+                SET_TOKEN_DEBUG_INFO("!=");
+            } else {
+                tokenType = TokenType::FACT;
+                SET_TOKEN_DEBUG_INFO("!");
+            }
             break;
         case '&' :
             tokenType = TokenType::AND;
@@ -138,18 +132,36 @@ inline std::vector<Token> tokenizer(STREAM & stream) {
                 stream.get();
                 tokenType = TokenType::SHIFTRIGHT;
                 SET_TOKEN_DEBUG_INFO(">>");
+            } else if (stream.peek() == '=') {
+                stream.get();
+                tokenType = TokenType::GE;
+                SET_TOKEN_DEBUG_INFO(">=");
             } else {
-                GetGlobalStatus() = ErrCode::PARSE_INFIXEXPR_SHIFTOP_INVALID;
-                return res;
+                tokenType = TokenType::GT;
+                SET_TOKEN_DEBUG_INFO(">")
             }
             break;
         case '<' :
             if (stream.peek() == '<') {
                 stream.get();
-                tokenType = TokenType::SHIFTRIGHT;
+                tokenType = TokenType::SHIFTLEFT;
                 SET_TOKEN_DEBUG_INFO("<<");
+            } else if (stream.peek() == '=') {
+                stream.get();
+                tokenType = TokenType::LE;
+                SET_TOKEN_DEBUG_INFO("<=");
             } else {
-                GetGlobalStatus() = ErrCode::PARSE_INFIXEXPR_SHIFTOP_INVALID;
+                tokenType = TokenType::LT;
+                SET_TOKEN_DEBUG_INFO("<")
+            }
+            break;
+        case '=' :
+            if (stream.peek() == '=') {
+                stream.get();
+                tokenType = TokenType::EQU;
+                SET_TOKEN_DEBUG_INFO("==");
+            } else {
+                GetGlobalStatus() = ErrCode::PARSE_INFIXEXPR_EQU_INVALID;
                 return res;
             }
             break;
@@ -164,6 +176,14 @@ inline std::vector<Token> tokenizer(STREAM & stream) {
         case ',' :
             tokenType = TokenType::COMMA;
             SET_TOKEN_DEBUG_INFO(",");
+            break;
+        case '?' :
+            tokenType = TokenType::QMARK;
+            SET_TOKEN_DEBUG_INFO("?");
+            break;
+        case ':' :
+            tokenType = TokenType::COLON;
+            SET_TOKEN_DEBUG_INFO(":");
             break;
         default :
             if (std::isdigit(ch)) { // 字面量
@@ -227,7 +247,7 @@ inline std::vector<Token> tokenizer(STREAM & stream) {
 
                 tokenType = TokenType::LITERAL;
                 tokenVal = Value{};
-                if (!Hooks::getInstance()->literal2Value(tokenVal, radix, literalBeforeDot, literalAfterDot)) {
+                if (!hooks.literal2Value || !hooks.literal2Value(tokenVal, radix, literalBeforeDot, literalAfterDot)) {
                     GetGlobalStatus() = ErrCode::PARSE_INFIXEXPR_LITERAL2NUM_ERROR;
                     return res;
                 }
@@ -264,6 +284,8 @@ inline std::vector<Token> tokenizer(STREAM & stream) {
             break;
         }
     }
+
+    res.push_back(Token{.type = TokenType::INVALID});
 
 #undef SET_TOKEN_DEBUG_INFO
     return res;

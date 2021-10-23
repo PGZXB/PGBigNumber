@@ -1,6 +1,7 @@
 #ifndef PGBIGNUMBER_STATUS_H
 #define PGBIGNUMBER_STATUS_H
 
+#include <any>
 #include "fwd.h"
 PGBN_NAMESPACE_START
 // 用来存放执行状态(错误码)的类
@@ -23,6 +24,13 @@ public:
 
     const Callback & getCallback() const;
     const std::string & getInfo() const;
+
+    void setContext(const std::any & context);
+
+    template <typename T>
+    T context() {
+        return std::any_cast<T>(m_context);
+    }    
 public:
     static constexpr Enum INVALID = static_cast<Enum>(-1);
 
@@ -49,6 +57,7 @@ private:
     static void callback(Enum no);
 private:
     Enum m_errno = INVALID;
+    std::any m_context;
 };
 
 PGBN_NAMESPACE_END

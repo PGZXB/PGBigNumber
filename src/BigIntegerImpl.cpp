@@ -871,6 +871,10 @@ bool BigIntegerImpl::flagsEquals(BNFLAG Enum flags) const {
     return m_flags == flags;
 }
 
+bool BigIntegerImpl::isZero() const {
+    return flagsContains(BNFlag::ZERO);
+}
+
 bool BigIntegerImpl::isOne() const {
     if (flagsContains(BNFlag::POSITIVE) && m_mag.count() == 1) {
         return m_mag[0] == 0x1;

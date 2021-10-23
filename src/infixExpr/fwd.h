@@ -81,9 +81,11 @@ public:
 };
 
 using Value = BigIntegerImpl;
-using UnaryFunc = std::function<Value(const Value &)>;
-using BinaryFunc = std::function<Value(const Value &, const Value &)>;
-using Func = Variant<UnaryFunc, BinaryFunc>;
+struct Func {
+    using ArgType = std::vector<Value> &;
+    std::function<Value(ArgType)> nativeCall = nullptr;
+    int argCount = 0; // -1 : dynamic arglist
+};
 
 struct Hooks {
     std::function<bool(Value &, int radix, const std::string &, const std::string &)> literal2Value = 
@@ -104,6 +106,36 @@ private:
     Hooks & operator=(const Hooks &) = delete;
     Hooks & operator=(Hooks &&) noexcept = delete;
 };
+
+namespace detail {
+
+template<typename STREAM>
+void skipWhiteChar(STREAM & stream) {
+    // ' ' '\n' '\r' '\t'
+    char ch = stream.peek();
+    while (ch == 0 || ch == ' ' || ch == '\r' || ch == '\n' || ch == '\t') {
+        stream.get();
+        ch = stream.peek();
+    }
+}
+
+}
+
+namespace utils {
+
+template<typename STREAM>
+void skipWhiteChar(STREAM & stream) {
+    // ' ' '\n' '\r' '\t'
+    char ch = stream.peek();
+    while (ch == 0 || ch == ' ' || ch == '\r' || ch == '\n' || ch == '\t') {
+        stream.get();
+        ch = stream.peek();
+    }
+}
+
+}
+
+using OpCode = std::uint64_t;
 
 PGBN_INFIXEXPR_NAMESPACE_END
 #endif // !PGBIGNUMBER_INFIXEXPR_FWD_H
