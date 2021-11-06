@@ -7,6 +7,7 @@ set(LIBS_FOR_TEST PGBigNumber)
 
 add_definitions(-DPGBN_DEBUG)
 add_definitions(-DPGZXB_DEBUG)
+add_definitions(-D__STDC_FORMAT_MACROS)
 add_definitions(-Wall)
 add_subdirectory(test)
 add_subdirectory(c)

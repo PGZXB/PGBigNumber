@@ -70,7 +70,7 @@ public:
 
     // to POD-integer, get lower bits & to human-string(base10)
     template <typename T>
-    T as() const { return {}; }
+    T as() const;
 
     // to string
     std::string toString(int radix = 10) const;
