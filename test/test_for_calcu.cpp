@@ -1,8 +1,7 @@
-// 利用Python3自带的大整数计算功能对pgbn::BigIntegerImpl的加减功能进行测试
-// 本测试要求在Linux上进行
-
-#ifdef linux
-
+// Test +, -, *, /, mod... of pgbn::BigIntegerImpl.
+// Depends on: Python3.
+// Workflow: 
+//      Generate examples -> Generate Python script from template -> Run[Check & Output testing info]
 #include "../include/PGBigNumber/pgdebug.h" // format
 #include "../src/BigIntegerImpl.h"
 
@@ -14,18 +13,13 @@
 #include <chrono>
 #include <ctime>
 #include <cstring>
+
+#ifndef _MSC_VER
 #include <sys/types.h>
 #include <unistd.h>
-#include <getopt.h>
+#endif // !_MSC_VER
 
-/**
- * 思路 : 先随机构造N个BigIntegerImpl, 随机进行M次计算, 每次计算随机选取两个BigIntegerImpl
- * 随机进行加减法, 将每次计算的字符串形式记下(如 (0x1) + (0x2) == (0x3)), 
- * 生成test_for_calcu.py文件, 利用exec函数执行.py文件, .py格式如下
- * 
- * (缩进均为4个空格)
- * 
- * test_for_calcu.py :
+/** Python code template:
  * 
  * test_log_file = <log-file>
  * log_file = open(test_log_file, 'w')
@@ -90,7 +84,8 @@ inline std::string strToPythonHex(std::string && other) {
     return std::move(other);
 }
 
-std::tuple<std::vector<std::string>, std::vector<ResultInfo>> generateExamples(std::size_t randSeed, std::size_t n, std::size_t m, std::size_t minbytes, std::size_t maxbytes) {
+std::tuple<std::vector<std::string>, std::vector<ResultInfo>> 
+    generateExamples(std::size_t randSeed, std::size_t n, std::size_t m, std::size_t minbytes, std::size_t maxbytes) {
     struct AutoDeleter {
         ~AutoDeleter() { free(ptr); }
         void * ptr = nullptr;
@@ -107,7 +102,6 @@ std::tuple<std::vector<std::string>, std::vector<ResultInfo>> generateExamples(s
         std::size_t & cnt;
         std::size_t start = 0;
     };
-
     struct BIImplAndStr {
         BIImplAndStr(const pgbn::BigIntegerImpl & bii, const std::string & str)
             : b(bii), s(str) { }
@@ -119,7 +113,7 @@ std::tuple<std::vector<std::string>, std::vector<ResultInfo>> generateExamples(s
     std::vector<BIImplAndStr> numbers;
     std::default_random_engine eng(randSeed);
 
-    { // 随机产生n个大整数Impl
+    { // Generate n BigIntegerImpl(s) randomly
         AutoDeleter deleter;
 
         std::uniform_int_distribution<std::size_t> gLen(minbytes, maxbytes);
@@ -129,15 +123,14 @@ std::tuple<std::vector<std::string>, std::vector<ResultInfo>> generateExamples(s
         deleter.ptr = bytes;
 
         for (std::size_t i = 0; i < n; ++i) {
-            // 随机确定长度[minbytes, maxbytes]
+            // Rand length[minbytes, maxbytes]
             std::size_t len = gLen(eng);
-            // 随机设置各个byte的值(最高位的byte即确定了大整数的正负)
-            for (std::size_t j = 0; j < len; ++j) {
+            // Rand bytes
+            for (std::size_t j = 0; j < len; ++j)
                 bytes[j] = gByte(eng);
-            }
-            // 构造大整数
+            // Create BigIntegerImpl & Add it to numbers
             auto & temp = numbers.emplace_back(pgbn::BigIntegerImpl(bytes, len), "");
-            // 缓存大整数的Pyhton字符串形式
+            // Cache hex-string
             temp.s = strToPythonHex(temp.b.toString(16));
         }
     }
@@ -145,7 +138,7 @@ std::tuple<std::vector<std::string>, std::vector<ResultInfo>> generateExamples(s
     std::uniform_int_distribution<std::size_t> gPair(0, n - 1);
     std::uniform_int_distribution<std::uint64_t> gU64(0, 10000);
 
-    // 测试用例工厂函数或其模板宏
+    // Test callbacks
 #define DEFINE_RAND_GEN_BINARY_OPERATION(op, opN) \
     [&numbers, &eng, &gPair, &res] (auto getTimeCounter) { \
         auto & a = numbers[gPair(eng)]; \
@@ -177,7 +170,8 @@ std::tuple<std::vector<std::string>, std::vector<ResultInfo>> generateExamples(s
             .append(strToPythonHex(copy.toString(16))); \
     }
 
-    auto divideOperation = [&numbers, &eng, &gPair, &res] (auto getTimeCounter) { // Python和C++涉及负数除法规则不同
+    auto test_divide = [&numbers, &eng, &gPair, &res] (auto getTimeCounter) {
+        // Python's divide-operation differ with PGBigNumber(C++ like)
         auto a = numbers[gPair(eng)];
         auto b = numbers[gPair(eng)];
         bool an = false, bn = false;
@@ -208,19 +202,19 @@ std::tuple<std::vector<std::string>, std::vector<ResultInfo>> generateExamples(s
     };
 
     pgbn::Byte * buf = reinterpret_cast<pgbn::Byte*>(::malloc(maxbytes + 1));
-    std::memset(buf, 0, maxbytes + 1); // 清零
+    std::memset(buf, 0, maxbytes + 1);
     AutoDeleter deleter = { buf };
     auto test_copyMagDataTo = [&numbers, &eng, &gPair, &res, &buf, maxbytes] (auto getTimeCounter) {
-        auto a = numbers[gPair(eng)]; // copy
-        a.b.abs(); // be positive
+        auto a = numbers[gPair(eng)]; // Copy
+        a.b.abs(); // Be positive
         a.s = a.s.front() == '-' ? a.s.substr(1) : a.s;  // be positive
 
         pgbn::BigIntegerImpl test;
         {   
             auto tmCnt = getTimeCounter();
-            auto len = a.b.copyMagDataTo(buf, maxbytes); // get bin
-            buf[len] = 0; // 置最高个byte为0, 隐含了一定为正数
-            test.assign(buf, len + 1, true); // from bin, 
+            auto len = a.b.copyMagDataTo(buf, maxbytes); // Get bin
+            buf[len] = 0; // Be positive
+            test.assign(buf, len + 1, true); // From bin, 
         }
         PGZXB_DEBUG_ASSERT(test.flagsContains(pgbn::BNFlag::POSITIVE) || test.flagsContains(pgbn::BNFlag::ZERO));
 
@@ -233,7 +227,7 @@ std::tuple<std::vector<std::string>, std::vector<ResultInfo>> generateExamples(s
         DEFINE_RAND_GEN_BINARY_OPERATION("+", add),
         DEFINE_RAND_GEN_BINARY_OPERATION("-", sub),
         DEFINE_RAND_GEN_BINARY_OPERATION("*", mul),
-        divideOperation,
+        test_divide,
         DEFINE_RAND_GEN_SHIFT_OPERATION("<<", shiftLeft),
         DEFINE_RAND_GEN_SHIFT_OPERATION(">>", shiftRight),
         test_copyMagDataTo,
@@ -260,7 +254,7 @@ std::tuple<std::vector<std::string>, std::vector<ResultInfo>> generateExamples(s
 
     std::uniform_int_distribution<std::size_t> gOp(0, opNum - 1);
 
-    // 随机构造m个计算
+    // Create m examples randomly
     for (std::size_t i = 0; i < m; ++i) {
 
         std::size_t index = gOp(eng);
@@ -272,9 +266,9 @@ std::tuple<std::vector<std::string>, std::vector<ResultInfo>> generateExamples(s
 }
 
 #define DEFINE_SETFUNC_FOR_STRING(val) \
-    [&val] (const char * arg) { val = arg; return true; }
+    {PCC::PARAM, [&val] (const char * arg) { val = arg; return true; }}
 #define DEFINE_SETFUNC_FOR_SIZET(val) \
-    [&val] (const char * arg) { \
+    {PCC::PARAM, [&val] (const char * arg) { \
         try { \
             val = std::stoull(std::string(arg)); \
         } catch(const std::out_of_range & e) { \
@@ -282,18 +276,22 @@ std::tuple<std::vector<std::string>, std::vector<ResultInfo>> generateExamples(s
             return false; \
         } \
         return true; \
-    }
+    }}
 
 #define HELP_INFO_LINE(opt, info) opt " : " info "\n"
 
-#define GETOPT() ::getopt(argc, argv, "hP:p:l:e:s:n:m:b:B:")
+#ifdef _MSC_VER
+constexpr const char kDefaultPythonPath[] = "python"; // Try find from PATH
+#else
+constexpr const char kDefaultPythonPath[] = "/usr/bin/python3";
+#endif // _MSC_VER
 
 int main (int argc, char * argv[]) {
 
     const char * help_info =
         "Options and arguments :\n"
         HELP_INFO_LINE("-h", "show help infomation")
-        HELP_INFO_LINE("-P", "python3_path, default : \"/usr/bin/python3\"")
+        HELP_INFO_LINE("-P", "python3_path, default : \"/usr/bin/python3\"(for win: \"python\")")
         HELP_INFO_LINE("-p", "python filename to be generated, default : \"test_for_calcu.py\"")
         HELP_INFO_LINE("-l", "log filename, default : \"test_for_calcu.log\"")
         HELP_INFO_LINE("-e", "examples filename, default : \"test_for_calcu.examples\"")
@@ -303,17 +301,19 @@ int main (int argc, char * argv[]) {
         HELP_INFO_LINE("-b", "minbytes of big-number, default : 1")
         HELP_INFO_LINE("-B", "minbytes of big-number, default : 16");
 
-    // args
-                                                   // -h : help
-    std::string python3_path = "/usr/bin/python3"; // -P
-    std::string python_filename = "test_for_calcu.py"; // -p
-    std::string log_file = "test_for_calcu.log"; // -l
+    // Command args
+                                                               // -h : help
+    std::string python3_path      = kDefaultPythonPath;        // -P
+    std::string python_filename   = "test_for_calcu.py";       // -p
+    std::string log_file          = "test_for_calcu.log";      // -l
     std::string examples_filename = "test_for_calcu.examples"; // -e
-    std::size_t seed = std::time(nullptr); // -s
-    std::size_t n(10), m(50), minbytes(1), maxbytes(16); // -n -m -b -B
+    std::size_t seed              = std::time(nullptr);        // -s
+    std::size_t n(10), m(50), minbytes(1), maxbytes(16);       // -n -m -b -B
 
-    std::unordered_map<char, std::function<bool(const char *)>> helperMap = {
-        {'h', [help_info] (const char *) { std::cout << help_info; return false; }},
+    // Parse cmd args
+    using PCC = pg::util::ParseCmdConfig;
+    std::unordered_map<char, PCC> cmdArgsConfig = {
+        {'h', {PCC::OPTION, [help_info](const char*) { std::cout << help_info; return false; }}},
         {'P', DEFINE_SETFUNC_FOR_STRING(python3_path)},
         {'p', DEFINE_SETFUNC_FOR_STRING(python_filename)},
         {'l', DEFINE_SETFUNC_FOR_STRING(log_file)},
@@ -324,17 +324,7 @@ int main (int argc, char * argv[]) {
         {'b', DEFINE_SETFUNC_FOR_SIZET(minbytes)},
         {'B', DEFINE_SETFUNC_FOR_SIZET(maxbytes)}
     };
-
-    // 设置命令行参数
-    int opt_ret = 0;
-    while ((opt_ret = GETOPT()) != -1) {
-        if (opt_ret == '?') {
-            std::cout << "args-list invalid\n";
-            return 0;
-        } else {
-            if (!helperMap[(char)opt_ret](::optarg)) return 0;
-        }
-    }
+    pg::util::parseCmdSimply(argc, argv, cmdArgsConfig);
 
     std::string format = 
         "test_log_file = '{0}'\n"
@@ -367,7 +357,7 @@ int main (int argc, char * argv[]) {
         "log_file.write('\\n')\n"
         "log_file.close()\n";
 
-    { // 生成的code并写入文件
+    { // Gen code & Dump to file
         std::cout << pgfmt::format("Generating Examples(With Seed {0})\n", seed);
         auto [temp, infos] = generateExamples(seed, n, m, minbytes, maxbytes);
         std::cout << "Generate Examples Successfully\n";
@@ -379,7 +369,7 @@ int main (int argc, char * argv[]) {
             totalCnt += info.cnt;
             totalMicroSec += info.nanosec / 1000.f;
         }
-        std::cout << pgfmt::format("+ Summary : Run {0} Examples In {1:.3} μs\n", totalCnt, totalMicroSec);
+        std::cout << pgfmt::format("+ Summary : Run {0} Examples In {1:.3} micro sec\n", totalCnt, totalMicroSec);
         std::cout << "+================== Examples Running Infomation ===================+\n";
 
         std::cout << "Updating Examples-file\n";
@@ -407,18 +397,16 @@ int main (int argc, char * argv[]) {
         std::cout << "Generate Python Code Successfully\n";
     }
 
-    // 执行python脚本
-    std::cout << "Run Python-Script\n";
+    // Exec Python script
+    std::cout << "Running Python-Script\n";
+#ifdef _MSC_VER
+    auto cmd = pgfmt::format("{0} {1}", python3_path, python_filename);
+    if (std::system(cmd.c_str()) != 0)
+        std::cout << "Exec Python-Script Failed!!\n";
+#else
     ::execl(python3_path.c_str(), "python3", python_filename.c_str(), NULL);
     std::cout << "Exec Python-Script Failed!!\n";
+#endif
 
     return 0;
 }
-
-#else
-#include <iostream>
-int main() {
-    std::cerr << "The test should be built & ran on linux\n";
-    return 0;
-}
-#endif // !linux

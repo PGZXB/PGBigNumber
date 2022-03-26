@@ -261,6 +261,33 @@ private:
     }
 };
 
+struct ParseCmdConfig {
+    using ParseCmdCallback = std::function<bool(const char* str)>;
+    enum {
+        OPTION,
+        PARAM,
+    } type;
+    ParseCmdCallback callbcak;
+};
+
+inline void parseCmdSimply(int argc, char* argv[], const std::unordered_map<char, ParseCmdConfig>& cmdConfig) {
+    // FIXME: Unsafe
+    for (int i = 1; i < argc; ++i) {
+        const char* str = argv[i];
+        const std::size_t slen = std::strlen(str);
+        if (slen >= 2 && str[0] == '-') {
+            auto iter = cmdConfig.find(str[1]);
+            if (iter != cmdConfig.end() && !!(iter->second.callbcak)) {
+                if (!iter->second.callbcak((
+                    iter->second.type == ParseCmdConfig::PARAM && i + 1 < argc) ? argv[++i] : nullptr
+                )) exit(0);
+            } /* else {
+              // ignore
+            } */
+        }
+    }
+}
+
 }
 PGZXB_ROOT_NAMESPACE_END
 #endif // PGZXB_PGFWD_H
