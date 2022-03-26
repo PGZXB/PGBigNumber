@@ -621,7 +621,7 @@ BigIntegerImpl & BigIntegerImpl::assign(const void * bin, SizeType len, bool lit
     }
 
     struct Temp { // RAII, to auto free memory
-        ~Temp() { free(ptr); }
+        ~Temp() { std::free(this->ptr); }
         void * ptr = nullptr;
     };
 
@@ -682,20 +682,24 @@ BigIntegerImpl & BigIntegerImpl::assign(const void * bin, SizeType len, bool lit
         }
     } else {
         if (!little) {
-            std::uint32_t * src = reinterpret_cast<std::uint32_t*>(std::malloc(tlen));
+            Byte * src = reinterpret_cast<Byte*>(std::malloc(tlen));
+            temp.ptr = src;
+            PGZXB_DEBUG_ASSERT(tlen - len >= 0);
+            PGZXB_DEBUG_PrintVar(tlen);
+            PGZXB_DEBUG_PrintVar(len);
             std::memset(src, 0, tlen - len);
             std::memcpy(src + (tlen - len), bin, len);
-            std::reverse(src, src + u32s);
-            temp.ptr = src;
-            bin = src;
+            std::uint32_t* src_u32 = reinterpret_cast<std::uint32_t*>(src);
+            std::reverse(src_u32, src_u32 + u32s);
+            bin = src_u32;
         } else {
             Byte * src = reinterpret_cast<Byte*>(std::malloc(tlen));
+            temp.ptr = src;
             std::memcpy(src, bin, len);
             std::memset(src + len, 0, tlen - len);
             std::reverse(src, src + tlen);
             std::uint32_t * src_u32 = reinterpret_cast<std::uint32_t*>(src);
             std::reverse(src_u32, src_u32 + u32s);
-            temp.ptr = src_u32;
             bin = src_u32;
         }
         len = tlen;
@@ -814,7 +818,8 @@ std::string BigIntegerImpl::toString(int radix) const {
     }
 
     res.append(strs.back());
-    for (auto iter = strs.end() - 2, start = strs.begin(); iter >= start; --iter) {
+    strs.pop_back();
+    for (auto iter = strs.rbegin(), rend = strs.rend(); iter < rend; ++iter) {
         SizeType leadingZeroCount = digitCountPerU64 - iter->size();
         res.append(detail::getZerosStr(leadingZeroCount), leadingZeroCount)
            .append(*iter);

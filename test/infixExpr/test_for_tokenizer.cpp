@@ -16,8 +16,8 @@ namespace pg::util::stringUtil::__IN_fmtUtil {
 int main () {
 
     auto pST = SymbolTable::getInstance();
-    pST->registe("sum", SymbolTable::Symbol{Func{.argCount = -1}});
-    pST->registe("min", SymbolTable::Symbol{Func{.argCount = -1}});
+    pST->registe("sum", SymbolTable::Symbol{Func{nullptr, -1}});
+    pST->registe("min", SymbolTable::Symbol{Func{nullptr, -1}});
     pST->registe("_100PI", SymbolTable::Symbol{Value{314}});
 
     const char testSrc1[] = 

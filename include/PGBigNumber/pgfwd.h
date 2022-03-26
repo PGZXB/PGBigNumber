@@ -130,14 +130,14 @@ int inline ctz(std::uint32_t x) {
 }
 #elif defined(_MSC_VER)
 int __inline ctz(std::uint32_t value) {
-    DWORD trailing_zero = 0;
+    unsigned long trailing_zero = 0;
 
     if (_BitScanForward(&trailing_zero, value)) return (int)(std::uint32_t)trailing_zero;
     else return 32;
 }
 
 int __inline clz(std::uint32_t value) {
-    DWORD leading_zero = 0;
+    unsigned long leading_zero = 0;
 
     if (_BitScanReverse( &leading_zero, value )) return 31 - leading_zero;
     else return 32;

@@ -19,16 +19,16 @@ int main () {
     
     auto pST = SymbolTable::getInstance();
     pST->registe("sum", SymbolTable::Symbol{Func{
-        .nativeCall = [] (std::vector<Value> args) -> Value {
+        /*.nativeCall = */ [](std::vector<Value> args) -> Value {
             Value res;
             for (auto & e : args) {
                 res.addAssign(e);
             }
             return res;
         },
-        .argCount = -1
+        /*.argCount =*/ -1
     }});
-    pST->registe("min", SymbolTable::Symbol{Func{.argCount = -1}});
+    pST->registe("min", SymbolTable::Symbol{Func{nullptr, -1}});
     pST->registe("_100PI", SymbolTable::Symbol{Value{314}});
 
     const char testSrc1[] = 

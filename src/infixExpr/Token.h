@@ -285,7 +285,8 @@ inline std::vector<Token> tokenizer(STREAM & stream, const Hooks & hooks) { // F
         }
     }
 
-    res.push_back(Token{.type = TokenType::INVALID});
+    res.push_back(Token{});
+    res.back().type = TokenType::INVALID;
 
 #undef SET_TOKEN_DEBUG_INFO
     return res;

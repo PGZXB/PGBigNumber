@@ -66,10 +66,20 @@ inline bool checkLittleEndian() {
 }
 
 inline constexpr bool isLittleEndian() {  // FIXME : 待跨平台
+#ifdef _MSC_VER
+#if '\x01\x02\x03\x04' == 0x01020304
+    return false;
+#elif '\x01\x02\x03\x04' == 0x04030201
+    return true;
+#else
+#error "???"
+#endif
+#else
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
     return false;
 #elif __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
     return true;
+#endif
 #endif
 }
 

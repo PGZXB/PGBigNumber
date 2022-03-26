@@ -1,9 +1,7 @@
 // 利用Python3自带的大整数计算功能对pgbn::BigIntegerImpl的加减功能进行测试
 // 本测试要求在Linux上进行
 
-#if !defined(linux) && !defined(__GNUC__)
-    #error "The Test Can Only Run On Linux!"
-#endif
+#ifdef linux
 
 #include "../include/PGBigNumber/pgdebug.h" // format
 #include "../src/BigIntegerImpl.h"
@@ -416,3 +414,11 @@ int main (int argc, char * argv[]) {
 
     return 0;
 }
+
+#else
+#include <iostream>
+int main() {
+    std::cerr << "The test should be built & ran on linux\n";
+    return 0;
+}
+#endif // !linux

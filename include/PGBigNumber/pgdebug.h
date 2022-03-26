@@ -311,9 +311,10 @@ namespace pg::util::stringUtil {
             const std::vector<std::pair<std::string::const_iterator, std::string::const_iterator>> & ranges,
             const std::vector<int> & nos) {
             res.append(fmt.begin(), ranges.front().first - 1);
-            ssize_t cSize = contents.size();
-            ssize_t idx = 0;
-            for (ssize_t i = 0; i < static_cast<ssize_t>(nos.size()) - 1; ++i) {
+            const std::size_t cSize = contents.size();
+            const std::size_t nosSize = nos.size();
+            std::size_t idx = 0;
+            for (std::size_t i = 0; i + 1 < nosSize; ++i) {
                 idx = nos.at(i);
                 if (idx < cSize) res.append(contents.at(idx));
                 res.append(ranges.at(i).second + 1, ranges.at(i + 1).first - 1);
@@ -350,9 +351,10 @@ namespace pg::util::stringUtil {
         std::vector<std::string> contents =  __IN_fmtUtil::parseArgs(limits, args...);
 
         std::string res; res.append(fmt.begin(), contentRangeInBracket.front().first - 1);
-        ssize_t cSize = contents.size();
-        ssize_t idx = 0;
-        for (ssize_t i = 0; i < static_cast<ssize_t>(nos.size()) - 1; ++i) {
+        const std::size_t cSize = contents.size();
+        const std::size_t nosSize = nos.size();
+        std::size_t idx = 0;
+        for (std::size_t i = 0; i + 1 < nosSize; ++i) {
             idx = nos.at(i);
             if (idx < cSize) res.append(contents.at(idx));
             res.append(contentRangeInBracket.at(i).second + 1, contentRangeInBracket.at(i + 1).first - 1);
