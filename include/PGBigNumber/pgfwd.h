@@ -9,6 +9,7 @@
 #define PGZXB_PGFWD_H
 
 #include <cstdint>
+#include <cstring>
 #include <string>
 
 #ifdef _MSC_VER
