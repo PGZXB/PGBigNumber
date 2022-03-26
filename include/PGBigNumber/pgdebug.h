@@ -156,7 +156,7 @@ namespace pg::util::stringUtil::__IN_fmtUtil {
             char * ptr = nullptr;
         };
 
-        HeapCharArrayWrapper buf(new char[ele.size() << 1]);  // temp-processing ==> Buffer
+        HeapCharArrayWrapper buf(new char[(ele.size() + 1) * 2]);  // temp-processing ==> Buffer
         char fmt[50] = { 0 };
 
         sprintf(fmt, "%%%ss", limit.c_str());
