@@ -7,7 +7,7 @@ using namespace pgbn::infixExpr;
 // FIXME: Err Process
 
 #define CKERR() if (m_errCode != ErrCode::SUCCESS) return nullptr
-#define BADTOK(type, msg) { badToken((type), (msg)); return nullptr; } PGZXB_PASS
+#define BADTOK(type, msg) { std::cerr << __func__ << " " << __LINE__; badToken((type), (msg)); return nullptr; } PGZXB_PASS
 
 #undef PGZXB_DEBUG_INFO_HEADER
 #define PGZXB_DEBUG_INFO_HEADER __func__
@@ -112,14 +112,24 @@ ExprNode * ExprParser::parseAddSub() {
 }
 
 ExprNode * ExprParser::parseMulDivMod() {
-    Node * node = parseUnaryOp();
+    Node * node = parsePow();
     while (true) {
         if (consumeToken(TokenType::MUL))
-            node = m_pNodePool->newBinOpNode(TokenType::MUL, node, parseUnaryOp());
+            node = m_pNodePool->newBinOpNode(TokenType::MUL, node, parsePow());
         else if (consumeToken(TokenType::DIV))
-            node = m_pNodePool->newBinOpNode(TokenType::DIV, node, parseUnaryOp());
+            node = m_pNodePool->newBinOpNode(TokenType::DIV, node, parsePow());
         else if (consumeToken(TokenType::MOD))
-            node = m_pNodePool->newBinOpNode(TokenType::MOD, node, parseUnaryOp());
+            node = m_pNodePool->newBinOpNode(TokenType::MOD, node, parsePow());
+        else return node;
+    }
+    return nullptr;
+}
+
+ExprNode* ExprParser::parsePow() {
+    Node* node = parseUnaryOp();
+    while (true) {
+        if (consumeToken(TokenType::POW))
+            node = m_pNodePool->newBinOpNode(TokenType::POW, node, parseUnaryOp());
         else return node;
     }
     return nullptr;
@@ -149,7 +159,7 @@ ExprNode * ExprParser::parsePrim() {
     if (consumeToken(TokenType::LEFTBRACKET)) {
         Node * node = parseExpr();
         if (!consumeToken(TokenType::RIGHTBRACKET))
-            BADTOK(TokenType::COLON, "expected ')'");
+            BADTOK(TokenType::RIGHTBRACKET, "expected ')'");
         return node;
     } else if (consumeToken(TokenType::LITERAL)) {
         return m_pNodePool->newLiteralNode(m_tokens[m_currTokenIndex - 1].val);

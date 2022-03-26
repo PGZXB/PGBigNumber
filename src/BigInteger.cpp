@@ -25,6 +25,11 @@ static inline BigInteger getU64Max() {
 // default
 pgbn::BigInteger::BigInteger() noexcept : m_pImpl(new BigIntegerImpl{}) { }
 
+// construct from BigIntegerImpl
+pgbn::BigInteger::BigInteger(std::unique_ptr<BigIntegerImpl>&& impl) : m_pImpl(std::move(impl)) {
+
+}
+
 // copy, only copy ptr-to-impl, copy base-data on write
 pgbn::BigInteger::BigInteger(const BigInteger & other) : m_pImpl(new BigIntegerImpl{*other.m_pImpl}) { }
 

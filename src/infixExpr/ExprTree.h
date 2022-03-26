@@ -45,7 +45,7 @@ public:
 private:
     Node m_initBuffer[INIT_BUF_SIZE];
     std::deque<Node> m_exBuffer;
-    SizeType m_count;
+    SizeType m_count{0};
 };
 
 PGBN_INFIXEXPR_NAMESPACE_END

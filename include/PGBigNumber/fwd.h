@@ -32,6 +32,8 @@
 */
 #define PGBN_NAMESPACE_START namespace pg { namespace base { namespace bigNumber {
 #define PGBN_NAMESPACE_END } } }
+#define PGBN_EXPR_NAMESPACE_START PGBN_NAMESPACE_START namespace expr {
+#define PGBN_EXPR_NAMESPACE_END } PGBN_NAMESPACE_END
 
 #define PGBN_MIN_CPP_VERSION 201703L
 

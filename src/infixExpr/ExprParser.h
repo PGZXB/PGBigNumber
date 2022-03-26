@@ -39,6 +39,7 @@ private:
     Node * parseShift();
     Node * parseAddSub();
     Node * parseMulDivMod();
+    Node * parsePow();
     Node * parseUnaryOp();
     Node * parsePostfixOp();
     Node * parsePrim();

@@ -57,8 +57,18 @@ static Value binOpEvalCallback(ExprNode * node) {
         left.shiftRightAssign(right.toU64());
         return left;
     case TokenType::POW :
-        // TODO: Impl it
-        return left;
+        // TODO: Opt it
+        if (right.isZero()) {
+            return Value(0);
+        }
+        {
+            auto res = Value(1);
+            while (right.cmp(0) > 0) {
+                res.mulAssign(left);
+                right.dec();
+            }
+            return res;
+        }
     default :
         PGZXB_DEBUG_ASSERT_EX("Can Not Be Reached", false);
     }

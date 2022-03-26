@@ -20,6 +20,9 @@ public:
     // default
     BigInteger() noexcept;
 
+    // construct from BigIntegerImpl
+    BigInteger(std::unique_ptr<BigIntegerImpl> &&impl);
+
     // copy, only copy ptr-to-impl, copy base-data on write
     BigInteger(const BigInteger & other);
 
