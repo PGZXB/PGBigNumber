@@ -1,5 +1,5 @@
 #include <iostream>
-#include "../src/BigIntegerImpl.h"
+#include "BigIntegerImpl.h"
 
 // Simple Test
 // 更具体的测试利用test_for_calcu.cpp

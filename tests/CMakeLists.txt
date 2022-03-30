@@ -1,5 +1,6 @@
-include_directories(../include)
-
+include_directories(../src)
+add_definitions(-DPGBN_DEBUG)
+add_definitions(-DPGZXB_DEBUG)
 add_subdirectory(c)
 add_subdirectory(infixExpr)
 

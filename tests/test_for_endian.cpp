@@ -1,4 +1,4 @@
-#include "../include/PGBigNumber/fwd.h"
+#include "fwd.h"
 
 using namespace pgbn;
 

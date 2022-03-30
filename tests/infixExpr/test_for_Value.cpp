@@ -8,7 +8,7 @@
     #define PGBN_DEBUG
 #endif
 
-#include "../../src/infixExpr/fwd.h"
+#include "infixExpr/fwd.h"
 
 #undef PGZXB_DEBUG_INFO_HEADER
 #define PGZXB_DEBUG_INFO_HEADER "[TEST] "

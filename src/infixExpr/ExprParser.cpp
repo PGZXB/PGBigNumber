@@ -1,13 +1,19 @@
 #include "ExprParser.h"
 #include "ExprTree.h"
 
+#include <any>
+
 using namespace pgbn;
 using namespace pgbn::infixExpr;
 
 // FIXME: Err Process
 
 #define CKERR() if (m_errCode != ErrCode::SUCCESS) return nullptr
-#define BADTOK(type, msg) { std::cerr << __func__ << " " << __LINE__; badToken((type), (msg)); return nullptr; } PGZXB_PASS
+#define BADTOK(type, msg) { \
+        PGZXB_DEBUG_Print((msg)); \
+        badToken((type), (msg)); \
+        return nullptr; \
+    } PGZXB_PASS
 
 #undef PGZXB_DEBUG_INFO_HEADER
 #define PGZXB_DEBUG_INFO_HEADER __func__

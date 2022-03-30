@@ -2,7 +2,7 @@
 #include <bitset>
 #include <sstream>
 #define private public
-#include "../src/BigIntegerImpl.h"
+#include "BigIntegerImpl.h"
 
 using namespace pgbn;
 

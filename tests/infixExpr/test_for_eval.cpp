@@ -1,9 +1,9 @@
 #include <iostream>
 
-#include "../../src/infixExpr/ExprParser.h"
-#include "../../src/infixExpr/Token.h"
-#include "../../src/infixExpr/ExprTree.h"
-#include "../../include/PGBigNumber/streams/StringReadStream.h"
+#include "infixExpr/ExprParser.h"
+#include "infixExpr/Token.h"
+#include "infixExpr/ExprTree.h"
+#include "streams/StringReadStream.h"
 
 using namespace pgbn::infixExpr;
 

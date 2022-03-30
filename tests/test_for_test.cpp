@@ -1,4 +1,4 @@
-#include <PGBigNumber/pgdebug.h>
+#include "pgdebug.h"
 
 int test () {
     return __cplusplus;

@@ -1,7 +1,7 @@
 #ifndef PGBIGNUMBER_ERRINFOS_H
 #define PGBIGNUMBER_ERRINFOS_H
 
-#include "../include/PGBigNumber/fwd.h"
+#include "fwd.h"
 PGBN_NAMESPACE_START
 
 struct ErrInfo {

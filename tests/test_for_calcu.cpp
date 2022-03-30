@@ -2,8 +2,8 @@
 // Depends on: Python3.
 // Workflow: 
 //      Generate examples -> Generate Python script from template -> Run[Check & Output testing info]
-#include "../include/PGBigNumber/pgdebug.h" // format
-#include "../src/BigIntegerImpl.h"
+#include "pgdebug.h" // format
+#include "BigIntegerImpl.h"
 
 #include <iostream>
 #include <fstream>
@@ -399,14 +399,9 @@ int main (int argc, char * argv[]) {
 
     // Exec Python script
     std::cout << "Running Python-Script\n";
-#ifdef _MSC_VER
     auto cmd = pgfmt::format("{0} {1}", python3_path, python_filename);
     if (std::system(cmd.c_str()) != 0)
         std::cout << "Exec Python-Script Failed!!\n";
-#else
-    ::execl(python3_path.c_str(), "python3", python_filename.c_str(), NULL);
-    std::cout << "Exec Python-Script Failed!!\n";
-#endif
 
     return 0;
 }

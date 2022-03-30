@@ -16,8 +16,8 @@
  *      <正负号><数字>.<数字>e<整数>
  * 
  */
-#include "../../include/PGBigNumber/fwd.h"
-#include "../../include/PGBigNumber/Status.h"
+#include "../fwd.h"
+#include "../Status.h"
 #include "../BigIntegerImpl.h"
 #include <variant>
 

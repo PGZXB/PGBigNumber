@@ -2,7 +2,7 @@
 #define PGZXB_DEBUG
 
 #include <iostream>
-#include "../include/PGBigNumber/BigInteger.h"
+#include "BigInteger.h"
 
 using pgbn::BigInteger;
 

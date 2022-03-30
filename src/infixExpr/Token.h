@@ -1,9 +1,9 @@
 #ifndef PGBIGNUMBER_INFIXEXPR_TOKEN_H
 #define PGBIGNUMBER_INFIXEXPR_TOKEN_H
 
+#include "../errInfos.h"
 #include "fwd.h"
 #include "SymbolTable.h"
-#include "../errInfos.h"
 #include <cctype>
 PGBN_INFIXEXPR_NAMESPACE_START
 
@@ -69,7 +69,7 @@ inline std::vector<Token> tokenizer(STREAM & stream, const Hooks & hooks) { // F
         auto & tokenPSymbol = currToken.pSymbol;
 
 #ifdef PGBN_DEBUG
-        #define SET_TOKEN_DEBUG_INFO(info) currToken.debugInfo = (info);
+        #define SET_TOKEN_DEBUG_INFO(info) currToken.debugInfo = (info)
 #else
         #define SET_TOKEN_DEBUG_INFO(info) PGZXB_PASS
 #endif
@@ -138,7 +138,7 @@ inline std::vector<Token> tokenizer(STREAM & stream, const Hooks & hooks) { // F
                 SET_TOKEN_DEBUG_INFO(">=");
             } else {
                 tokenType = TokenType::GT;
-                SET_TOKEN_DEBUG_INFO(">")
+                SET_TOKEN_DEBUG_INFO(">");
             }
             break;
         case '<' :
@@ -152,7 +152,7 @@ inline std::vector<Token> tokenizer(STREAM & stream, const Hooks & hooks) { // F
                 SET_TOKEN_DEBUG_INFO("<=");
             } else {
                 tokenType = TokenType::LT;
-                SET_TOKEN_DEBUG_INFO("<")
+                SET_TOKEN_DEBUG_INFO("<");
             }
             break;
         case '=' :

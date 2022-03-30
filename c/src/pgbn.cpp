@@ -1,5 +1,5 @@
-#include "../include/PGBigNumber/pgbn.h"
-#include "../../include/PGBigNumber/Status.h"
+#include "pgbn.h"
+#include "../../src/Status.h"
 #include "../../src/BigIntegerImpl.h"
 #include "../../src/errInfos.h"
 

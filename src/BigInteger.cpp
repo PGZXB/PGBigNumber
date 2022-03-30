@@ -1,8 +1,8 @@
 //
 // Created by 42025 on 2021/4/10.
 //
-#include "../include/PGBigNumber/BigInteger.h"
-#include "../include/PGBigNumber/Status.h"
+#include "BigInteger.h"
+#include "Status.h"
 #include "BigIntegerImpl.h"
 #include "errInfos.h"
 

@@ -12,6 +12,7 @@
 #include <cstring>
 #include <functional>
 #include <string>
+#include <limits>
 
 #ifdef _MSC_VER
 #include <intrin.h>

@@ -1,6 +1,6 @@
 #include <iostream>
-#include "../include/PGBigNumber/pgdebug.h"
-#include "../src/Slice.h"
+#include "pgdebug.h"
+#include "Slice.h"
 
 int main () {
 

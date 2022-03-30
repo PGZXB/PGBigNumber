@@ -1,7 +1,7 @@
 #ifndef PGBIGNUMBER_INFIXEXPR_OBJMGR_H
 #define PGBIGNUMBER_INFIXEXPR_OBJMGR_H
 
-#include "../../include/PGBigNumber/fwd.h"
+#include "../fwd.h"
 #include <unordered_map>
 PGBN_NAMESPACE_START
 template <typename T>

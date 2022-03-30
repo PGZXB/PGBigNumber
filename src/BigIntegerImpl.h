@@ -1,7 +1,7 @@
 #ifndef PGBIGNUMBER_BIGINTEGERIMPL_H
 #define PGBIGNUMBER_BIGINTEGERIMPL_H
 
-#include "../include/PGBigNumber/fwd.h"
+#include "fwd.h"
 #include "Slice.h"
 PGBN_NAMESPACE_START
 

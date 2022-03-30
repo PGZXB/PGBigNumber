@@ -1,4 +1,4 @@
-#include "../src/BigIntegerImpl.h"
+#include "BigIntegerImpl.h"
 #include <algorithm>
 #include <iostream>
 #include <bitset>

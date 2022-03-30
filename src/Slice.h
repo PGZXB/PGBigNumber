@@ -5,7 +5,7 @@
 #include <memory>
 #include <algorithm>
 #include <limits>
-#include "../include/PGBigNumber/fwd.h"
+#include "fwd.h"
 PGBN_NAMESPACE_START
 
 // manage the range of vector

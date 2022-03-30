@@ -1,8 +1,8 @@
 #undef PGBN_DEBUG
 #define PGBN_DEBUG
-#include "../../src/BigIntegerImpl.h"
-#include "../../src/infixExpr/Token.h"
-#include "../../include/PGBigNumber/streams/StringReadStream.h"
+#include "BigIntegerImpl.h"
+#include "infixExpr/Token.h"
+#include "streams/StringReadStream.h"
 
 using namespace pgbn::infixExpr;
 

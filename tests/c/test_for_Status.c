@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "../../c/include/PGBigNumber/pgbn.h"
+#include "pgbn.h"
 
 typedef struct Info {
     const char * msg;

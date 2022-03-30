@@ -3,7 +3,7 @@
 #include <chrono>
 #include <ctime>
 #include <cassert>
-#include "../src/BigIntegerImpl.h"
+#include "BigIntegerImpl.h"
 
 // Simple Test For fromString And toString Of BigIntegerImpl
 

@@ -1,9 +1,9 @@
-#include "../../include/PGBigNumber/expr.h"
-#include "../../include/PGBigNumber/streams/StringReadStream.h"
-#include "../../src/infixExpr/ExprParser.h"
-#include "../../src/infixExpr/Token.h"
-#include "../../src/infixExpr/ExprTree.h"
-#include "../../src/errInfos.h"
+#include "../expr.h"
+#include "../streams/StringReadStream.h"
+#include "../errInfos.h"
+#include "ExprParser.h"
+#include "Token.h"
+#include "ExprTree.h"
 
 using namespace pgbn;
 using namespace pg::base;
