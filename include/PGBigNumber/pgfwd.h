@@ -10,11 +10,12 @@
 
 #include <cstdint>
 #include <cstring>
+#include <functional>
 #include <string>
 
 #ifdef _MSC_VER
 #include <intrin.h>
-#endif
+#endif // _MSC_VER
 
 #define PGZXB_ROOT_NAMESPACE_START namespace pg {
 #define PGZXB_ROOT_NAMESPACE_END }
@@ -66,7 +67,7 @@ using Enum = std::uint32_t;
 using Byte = std::uint8_t;
 using String = std::string;
 
-#define PRI_ENUM PRIu32
+#define PGZXB_PRI_ENUM PRIu32
 
 constexpr SizeType DEFAULT_BUFFER_SIZE = 512;
 
@@ -190,7 +191,7 @@ inline void visitParamPackageHelper(VISITOR visitor, SizeType index, ARG arg, AR
     visitParamPackageHelper(visitor, index + 1, std::forward<ARGS>(args)...);
 }
 
-}
+} // namesapce detail
 
 template <typename VISITOR, typename ... ARGS>
 inline void visitParamPackage(VISITOR visitor, ARGS && ... args) {
@@ -230,7 +231,7 @@ struct TypeArrayBase<FINDEX, TypeArrayInvalidDataType> {
     static constexpr SizeType INDEX = FINDEX;
 };
 
-}
+} // namesapce detail
 
 template<typename ... TYPES>
 struct TypeArray {
@@ -289,6 +290,6 @@ inline void parseCmdSimply(int argc, char* argv[], const std::unordered_map<char
     }
 }
 
-}
+} // namesapce util
 PGZXB_ROOT_NAMESPACE_END
-#endif // PGZXB_PGFWD_H
+#endif // !PGZXB_PGFWD_H

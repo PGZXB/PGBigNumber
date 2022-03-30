@@ -512,13 +512,13 @@ BigIntegerImpl & BigIntegerImpl::fromString(const StringArg & str, int radix, bo
     constexpr int MIN_RADIX = 2;
     constexpr int MAX_RADIX = 36;
     if (radix < MIN_RADIX || radix > MAX_RADIX) {
-        GetGlobalStatus() = ErrCode::RADIX_INVALID;
+        PGBN_GetGlobalStatus() = ErrCode::RADIX_INVALID;
         ok && (*ok = false);
         return *this;
     }
 
     if (str.empty()) {
-        GetGlobalStatus() = ErrCode::NUMBER_STRING_EMPTY;
+        PGBN_GetGlobalStatus() = ErrCode::NUMBER_STRING_EMPTY;
         ok && (*ok = false);
         return *this;
     }
@@ -531,7 +531,7 @@ BigIntegerImpl & BigIntegerImpl::fromString(const StringArg & str, int radix, bo
     auto negIndex = str.find_last_of('-');
     if (negIndex != StringArg::npos) {
         if (negIndex != 0 || posiIndex != StringArg::npos) { // 不是第0个或同时有+-都是非法
-            GetGlobalStatus() = ErrCode::NUMBER_STRING_SIG_INVALID;
+            PGBN_GetGlobalStatus() = ErrCode::NUMBER_STRING_SIG_INVALID;
             ok && (*ok = false);
             return *this;
         }
@@ -539,7 +539,7 @@ BigIntegerImpl & BigIntegerImpl::fromString(const StringArg & str, int radix, bo
         pos = 1;
     } else if (posiIndex != StringArg::npos) {
         if (posiIndex != 0) {
-            GetGlobalStatus() = ErrCode::NUMBER_STRING_SIG_INVALID;
+            PGBN_GetGlobalStatus() = ErrCode::NUMBER_STRING_SIG_INVALID;
             ok && (*ok = false);
             return *this;
         }
@@ -549,7 +549,7 @@ BigIntegerImpl & BigIntegerImpl::fromString(const StringArg & str, int radix, bo
     }
 
     if (pos == slen) {
-        GetGlobalStatus() = ErrCode::NUMBER_STRING_EMPTY;
+        PGBN_GetGlobalStatus() = ErrCode::NUMBER_STRING_EMPTY;
         ok && (*ok = false);
         return *this;
     }
@@ -566,7 +566,7 @@ BigIntegerImpl & BigIntegerImpl::fromString(const StringArg & str, int radix, bo
     SizeType digitCnt = slen - pos;
     SizeType bitCnt = detail::getBitCountByDigitCount(digitCnt, radix);
     if (bitCnt + 31 >= 0x1'0000'0000) {
-        GetGlobalStatus() = ErrCode::ARITHMETIC_OVERFLOW;
+        PGBN_GetGlobalStatus() = ErrCode::ARITHMETIC_OVERFLOW;
         ok && (*ok = false);
         return *this;
     }
@@ -579,7 +579,7 @@ BigIntegerImpl & BigIntegerImpl::fromString(const StringArg & str, int radix, bo
     std::uint32_t mag0;
     auto fistCov2U32Result = std::from_chars(cStr + pos, cStr + pos + fistBlockDigitCnt, mag0, radix);
     if (fistCov2U32Result.ec != std::errc{}) { // to uint32_t出错
-        GetGlobalStatus() = ErrCode::NUMBER_STRING_PARSE2NUM_ERROR;
+        PGBN_GetGlobalStatus() = ErrCode::NUMBER_STRING_PARSE2NUM_ERROR;
         ok && (*ok = false);
         return *this;
     }
@@ -592,7 +592,7 @@ BigIntegerImpl & BigIntegerImpl::fromString(const StringArg & str, int radix, bo
     while (pos < slen) {
         auto toU32Result = std::from_chars(cStr + pos, cStr + pos + blockSize, blockValue, radix);
         if (toU32Result.ec != std::errc{}) {
-            GetGlobalStatus() = ErrCode::NUMBER_STRING_PARSE2NUM_ERROR;
+            PGBN_GetGlobalStatus() = ErrCode::NUMBER_STRING_PARSE2NUM_ERROR;
             ok && (*ok = false);
             return *this;
         }
@@ -604,7 +604,7 @@ BigIntegerImpl & BigIntegerImpl::fromString(const StringArg & str, int radix, bo
     if (sigNum == -1) temp.setFlagsToNegative();
     else temp.setFlagsToPositive();
     assign(std::move(temp));
-    GetGlobalStatus() = ErrCode::SUCCESS;
+    PGBN_GetGlobalStatus() = ErrCode::SUCCESS;
     ok && (*ok = true);
     return *this;
 }
@@ -1368,7 +1368,7 @@ void BigIntegerImpl::div(BigIntegerImpl & q, BigIntegerImpl & r, const BigIntege
     int aSigNum = a.flagsContains(BNFlag::POSITIVE) ? +1 : (a.flagsContains(BNFlag::ZERO) ? 0 : -1);
     int bSigNum = b.flagsContains(BNFlag::POSITIVE) ? +1 : (b.flagsContains(BNFlag::ZERO) ? 0 : -1);
 
-    if (bSigNum == 0) { GetGlobalStatus() = ErrCode::DIVBY0; return; } // a/0 error
+    if (bSigNum == 0) { PGBN_GetGlobalStatus() = ErrCode::DIVBY0; return; } // a/0 error
     if (aSigNum == 0) { q.beZero(); r.beZero(); return; } // 0/b == 0...0
 
     if (b.m_mag.count() == 1) { // 转发到 a/<int64_t>
@@ -1416,7 +1416,7 @@ void BigIntegerImpl::div(BigIntegerImpl & q, BigIntegerImpl & r, const BigIntege
         else r.setFlagsToPositive();
     }
     // set status
-    GetGlobalStatus() = ErrCode::SUCCESS;
+    PGBN_GetGlobalStatus() = ErrCode::SUCCESS;
 }
 
 void BigIntegerImpl::div(BigIntegerImpl & q, BigIntegerImpl & r, const BigIntegerImpl & a, std::int64_t i64) {
@@ -1565,7 +1565,7 @@ void BigIntegerImpl::knuthDivImpl(BigIntegerImpl & q, BigIntegerImpl & r, const 
 }
 
 void BigIntegerImpl::divideAssignAndReminderByU32(std::uint32_t u32, BigIntegerImpl & r) {
-    if (u32 == 0) { GetGlobalStatus() = ErrCode::DIVBY0; return; }
+    if (u32 == 0) { PGBN_GetGlobalStatus() = ErrCode::DIVBY0; return; }
     
     int thisSigNum = flagsContains(BNFlag::POSITIVE) ? +1 : (flagsContains(BNFlag::ZERO) ? 0 : -1);
     int u32SigNum = +1;
@@ -1609,11 +1609,11 @@ void BigIntegerImpl::divideAssignAndReminderByU32(std::uint32_t u32, BigIntegerI
         if (thisSigNum > 0) r.setFlagsToPositive();
         else r.setFlagsToNegative();
     }
-    GetGlobalStatus() = ErrCode::SUCCESS;
+    PGBN_GetGlobalStatus() = ErrCode::SUCCESS;
 }
 
 void BigIntegerImpl::modAssignAndQuotientByU32(std::uint32_t u32, BigIntegerImpl & q) {
-    if (u32 == 0) { GetGlobalStatus() = ErrCode::DIVBY0; return; }
+    if (u32 == 0) { PGBN_GetGlobalStatus() = ErrCode::DIVBY0; return; }
     
     int thisSigNum = flagsContains(BNFlag::POSITIVE) ? +1 : (flagsContains(BNFlag::ZERO) ? 0 : -1);
     int u32SigNum = +1;
@@ -1660,7 +1660,7 @@ void BigIntegerImpl::modAssignAndQuotientByU32(std::uint32_t u32, BigIntegerImpl
         if (thisSigNum > 0) setFlagsToPositive();
         else setFlagsToNegative();
     }
-    GetGlobalStatus() = ErrCode::SUCCESS;
+    PGBN_GetGlobalStatus() = ErrCode::SUCCESS;
 }
 
 void BigIntegerImpl::beginWrite() {

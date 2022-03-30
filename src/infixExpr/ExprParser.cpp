@@ -200,7 +200,7 @@ bool ExprParser::hasNextToken() const {
 
 void ExprParser::badToken(TokenType type, const StringArg & msg) const {
     m_errCode = ErrCode::PARSE_INFIXEXPR_BAD_TOKEN;
-    GetGlobalStatus() = ErrCode::PARSE_INFIXEXPR_BAD_TOKEN;
+    PGBN_GetGlobalStatus() = ErrCode::PARSE_INFIXEXPR_BAD_TOKEN;
     std::any context = std::make_tuple(type, std::string(msg.data(), msg.size()));
-    GetGlobalStatus().setContext(context);
+    PGBN_GetGlobalStatus().setContext(context);
 }

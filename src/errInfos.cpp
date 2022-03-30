@@ -11,7 +11,7 @@ PGBN_NAMESPACE_START
 namespace detail {
 
 static inline void printErrInfo(pg::Enum code, const char * info) {
-    std::fprintf(stderr, "[Error][%" PRI_ENUM "]%s\n", code, info);
+    std::fprintf(stderr, "[Error][%" PGZXB_PRI_ENUM "]%s\n", code, info);
 }
 
 static void nullCallback(pg::Enum, const char *) {

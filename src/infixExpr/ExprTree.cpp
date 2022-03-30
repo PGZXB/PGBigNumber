@@ -118,7 +118,7 @@ static Value valEvalCallback(ExprNode * node) {
 static Value builtinFuncEvalCallback(ExprNode * node) {
     PGZXB_DEBUG_ASSERT(node->nodeType == ExprNode::NodeType::BUILTINFUNC);
     Func func = node->symbol->as<Func>();
-    if (func.argCount != -1 && static_cast<SizeType>(func.argCount) != node->children.size()) GetGlobalStatus() = ErrCode::PARSE_INFIXEXPR_BUILTINFUNC_CALL_NOT_MATCH;
+    if (func.argCount != -1 && static_cast<SizeType>(func.argCount) != node->children.size()) PGBN_GetGlobalStatus() = ErrCode::PARSE_INFIXEXPR_BUILTINFUNC_CALL_NOT_MATCH;
     PGZXB_DEBUG_ASSERT(!!func.nativeCall);
     std::vector<Value> args;
     for (auto * ch : node->children) { 

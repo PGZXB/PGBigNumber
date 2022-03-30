@@ -62,6 +62,6 @@ private:
 
 PGBN_NAMESPACE_END
 
-#define GetGlobalStatus() (*(Status::getInstance()))
+#define PGBN_GetGlobalStatus() (*(Status::getInstance()))
 
 #endif

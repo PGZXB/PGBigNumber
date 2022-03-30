@@ -161,7 +161,7 @@ inline std::vector<Token> tokenizer(STREAM & stream, const Hooks & hooks) { // F
                 tokenType = TokenType::EQU;
                 SET_TOKEN_DEBUG_INFO("==");
             } else {
-                GetGlobalStatus() = ErrCode::PARSE_INFIXEXPR_EQU_INVALID;
+                PGBN_GetGlobalStatus() = ErrCode::PARSE_INFIXEXPR_EQU_INVALID;
                 return res;
             }
             break;
@@ -224,7 +224,7 @@ inline std::vector<Token> tokenizer(STREAM & stream, const Hooks & hooks) { // F
                         for (ch = std::tolower(stream.peek()); std::isdigit(ch) || (ch >= 'a' && ch <= 'z'); stream.get(), ch = stream.peek())
                             literalBeforeDot.push_back(ch);
                         if (ch == '.') {
-                            GetGlobalStatus() = ErrCode::PARSE_INFIXEXPR_NOTDEC_BUTREAL;
+                            PGBN_GetGlobalStatus() = ErrCode::PARSE_INFIXEXPR_NOTDEC_BUTREAL;
                             return res;
                         }
                     }
@@ -241,14 +241,14 @@ inline std::vector<Token> tokenizer(STREAM & stream, const Hooks & hooks) { // F
                 }
 
                 if (!(radix >= 2 && radix <= 36)) {
-                    GetGlobalStatus() = ErrCode::PARSE_INFIXEXPR_RADIX_INVALID;
+                    PGBN_GetGlobalStatus() = ErrCode::PARSE_INFIXEXPR_RADIX_INVALID;
                     return res;
                 }
 
                 tokenType = TokenType::LITERAL;
                 tokenVal = Value{};
                 if (!hooks.literal2Value || !hooks.literal2Value(tokenVal, radix, literalBeforeDot, literalAfterDot)) {
-                    GetGlobalStatus() = ErrCode::PARSE_INFIXEXPR_LITERAL2NUM_ERROR;
+                    PGBN_GetGlobalStatus() = ErrCode::PARSE_INFIXEXPR_LITERAL2NUM_ERROR;
                     return res;
                 }
                 SET_TOKEN_DEBUG_INFO(pgfmt::format("Literval(Base {0}) : {1}.{2} (Value : {3})", radix, literalBeforeDot, literalAfterDot, tokenVal));
@@ -261,13 +261,13 @@ inline std::vector<Token> tokenizer(STREAM & stream, const Hooks & hooks) { // F
 
                 SymbolTable::Symbol * pSymbol = SymbolTable::getInstance()->get(symbolName);
                 if (pSymbol == nullptr) { // UndefinedSymbol
-                    GetGlobalStatus() = ErrCode::PARSE_INFIXEXPR_SYMBOL_UNDEFINED;
+                    PGBN_GetGlobalStatus() = ErrCode::PARSE_INFIXEXPR_SYMBOL_UNDEFINED;
                     return res;
                 } else {
                     if (pSymbol->is<Func>()) tokenType = TokenType::BUILTINFUNC;
                     else if (pSymbol->is<Value>()) tokenType = TokenType::BUILTINCONSTANT;
                     else { // InvalidBuiltinSymbol
-                        GetGlobalStatus() = ErrCode::PARSE_INFIXEXPR_BUILTIN_SYMBOL_INVALID;
+                        PGBN_GetGlobalStatus() = ErrCode::PARSE_INFIXEXPR_BUILTIN_SYMBOL_INVALID;
                         return res;
                     }
                     tokenPSymbol = pSymbol;
@@ -278,7 +278,7 @@ inline std::vector<Token> tokenizer(STREAM & stream, const Hooks & hooks) { // F
                     *tokenPSymbol
                 ));
             } else {
-                GetGlobalStatus() = ErrCode::PARSE_INFIXEXPR_CHAR_INVALID;
+                PGBN_GetGlobalStatus() = ErrCode::PARSE_INFIXEXPR_CHAR_INVALID;
                 return res;
             }
             break;

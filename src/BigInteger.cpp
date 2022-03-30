@@ -97,13 +97,13 @@ std::int64_t pgbn::BigInteger::getInt64(bool * ok) const {
         *this > std::numeric_limits<std::int64_t>::max() ||
         *this < std::numeric_limits<std::int64_t>::min()
     ) {
-        GetGlobalStatus() = ErrCode::ARITHMETIC_OVERFLOW;
+        PGBN_GetGlobalStatus() = ErrCode::ARITHMETIC_OVERFLOW;
         ok && (*ok = false);
         return std::numeric_limits<std::int64_t>::max();
     }
 
     auto u64 = m_pImpl->toU64();
-    GetGlobalStatus() = ErrCode::SUCCESS;
+    PGBN_GetGlobalStatus() = ErrCode::SUCCESS;
     ok && (*ok = true);
     return static_cast<std::int64_t>(u64);
 }
@@ -121,13 +121,13 @@ std::uint64_t pgbn::BigInteger::getUInt64(bool * ok) const {
         m_pImpl->flagsContains(BNFlag::NEGATIVE) ||
         *this > MAXU64
     ) {
-        GetGlobalStatus() = ErrCode::ARITHMETIC_OVERFLOW;
+        PGBN_GetGlobalStatus() = ErrCode::ARITHMETIC_OVERFLOW;
         ok && (*ok = false);
         return std::numeric_limits<std::uint64_t>::max();
     }
 
     auto u64 = m_pImpl->toU64();
-    GetGlobalStatus() = ErrCode::SUCCESS;
+    PGBN_GetGlobalStatus() = ErrCode::SUCCESS;
     ok && (*ok = true);
     return static_cast<std::int64_t>(u64);
 }

@@ -6,7 +6,8 @@
 
 #include "../pgfwd.h"
 #include <cstring>
-PGZXB_ROOT_NAMESPACE_START namespace base {
+PGZXB_ROOT_NAMESPACE_START
+namespace base {
 
 // only wrap char[], default no copy
 class StringReadStream {
@@ -102,5 +103,6 @@ private:
     const char * m_end = nullptr;
 };
 
-} PGZXB_ROOT_NAMESPACE_END
+} // namespace base
+PGZXB_ROOT_NAMESPACE_END
 #endif // !PGZXB_STRINGREADSTREAM_H

@@ -13,7 +13,7 @@
 
 #ifdef __cplusplus
 extern "C" {
-#endif
+#endif // __cplusplus
 
 typedef uint32_t pgbn_Enum_t;
 typedef void* pgbn_CallbackArg_t;
@@ -94,6 +94,6 @@ int pgbn_BigInteger_Cmp(pgbn_BigInteger_t * a, pgbn_BigInteger_t * b);
 
 #ifdef __cplusplus
 } // end of extern "C"
-#endif
+#endif // __cplusplus
 
-#endif
+#endif // !PGBIGNUMBER_C_PGBN_H
