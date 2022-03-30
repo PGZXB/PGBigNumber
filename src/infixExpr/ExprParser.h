@@ -7,7 +7,7 @@
 #include "Token.h"
 PGBN_INFIXEXPR_NAMESPACE_START
 
-class ExprNode;
+struct ExprNode;
 class NodePool;
 
 class ExprParser {

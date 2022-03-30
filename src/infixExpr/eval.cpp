@@ -19,5 +19,5 @@ Int pgbn::expr::eval(const StringArg &expr, Status *status) {
 		(*status) = ~ErrCode::SUCCESS;
 		return Int{};
 	}
-	return BigInteger(std::make_unique<BigIntegerImpl>(std::move(root->evalCallback(root))));
+	return BigInteger(std::make_unique<BigIntegerImpl>(root->evalCallback(root)));
 }

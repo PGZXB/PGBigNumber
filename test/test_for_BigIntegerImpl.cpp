@@ -288,7 +288,7 @@ int main () {
     a.assign((void*)&i64, sizeof(i64), true);
     TEST_ASSIGN_BIN(true, bin, len, a);
 
-    i64 = std::int64_t(std::numeric_limits<std::int32_t>::min()) << 1;
+    i64 = (std::int64_t)(std::uint64_t(std::numeric_limits<std::int32_t>::min()) << 1);
     a.assign((void*)&i64, sizeof(i64), true);
     TEST_ASSIGN_BIN(true, bin, len, a);
 

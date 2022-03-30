@@ -29,7 +29,7 @@ static inline void eraseZerosSuffix(Slice<std::uint32_t> & s) {
 }
 
 // 根据flags获取符号字节
-static inline Byte signByte(BNFLAG Enum flags) {
+[[maybe_unused]] static inline Byte signByte(BNFLAG Enum flags) {
     return (flags & BNFlag::NEGATIVE) != 0 ? 0xff : 0;
 }
 
@@ -281,7 +281,7 @@ static inline void dec(Slice<std::uint32_t> & a) {
 }
 
 // u32 -> string, 字符串是逆的, refer to http://www.strudel.org.uk/itoa/
-static inline std::string u32toa_reversed(std::uint32_t value, int base) {
+[[maybe_unused]] static inline std::string u32toa_reversed(std::uint32_t value, int base) {
  
     std::string buf;
 
@@ -304,7 +304,7 @@ static inline std::string u32toa_reversed(std::uint32_t value, int base) {
 }
 
 // 快速判断整数n是否为2的幂
-static inline bool isPow2(std::uint64_t n) {
+[[maybe_unused]] static inline bool isPow2(std::uint64_t n) {
     return (n & (n - 1)) == 0;
 }
 
