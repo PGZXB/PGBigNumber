@@ -28,7 +28,7 @@ cd ..
 Set PGBigNumber/include as include dir.
 
 Link static lib `PGBigNumber` (and `PGBigNumberBindingC` for C).
-* simple.cpp
+* Using in C++. simple.cpp:
 ```C++
 #include <cassert>
 #include <iostream>
@@ -61,7 +61,57 @@ int main() {
     return 0;
 }
 ```
-* simple.c
+* Using eval & peval. test_for_eval.cpp
+
+**peval <=> parallel-eval**
+```C++
+#include "expr.h"
+
+#include <chrono>
+
+using namespace pgbn;
+using namespace pgbn::expr;
+
+struct ScopedTimeCounter {
+    std::size_t nanosec{0};
+    const std::string name{nullptr};
+
+    ScopedTimeCounter(const std::string & name) : name(name) {
+        using std::chrono::system_clock;
+        nanosec = system_clock::now().time_since_epoch().count();
+    }
+    
+    ~ScopedTimeCounter() {
+        using std::chrono::system_clock;
+        nanosec = system_clock::now().time_since_epoch().count() - nanosec;
+        std::cerr << pgfmt::format("{0} : {1}ns\n", name, nanosec);
+    }
+};
+
+int main() {
+
+    auto simpleExpr = "(30000! + 30000! + 30000! + 30000! + 30000! + 30000! + 30000! + 30000!) + (30000! + 30000! + 30000! + 30000! + 30000! + 30000! + 30000! + 30000!)";
+
+    {
+        ScopedTimeCounter _(pgfmt::format("peval {0}", simpleExpr));
+        peval(simpleExpr);
+    }
+    {
+        ScopedTimeCounter _(pgfmt::format(" eval {0}", simpleExpr));
+        eval(simpleExpr);
+    }
+
+    return 0;
+}
+
+```
+`./tests/test_for_eval` Output:
+```shell
+# In My VM
+peval (30000! + 30000! + 30000! + 30000! + 30000! + 30000! + 30000! + 30000!) + (30000! + 30000! + 30000! + 30000! + 30000! + 30000! + 30000! + 30000!) : 23513704467ns
+ eval (30000! + 30000! + 30000! + 30000! + 30000! + 30000! + 30000! + 30000!) + (30000! + 30000! + 30000! + 30000! + 30000! + 30000! + 30000! + 30000!) : 61925004957ns
+```
+* Using in C. simple.c
 ```C
 #include <stdio.h>
 #include <string.h>
