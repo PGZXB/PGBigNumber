@@ -135,7 +135,7 @@ using Node  = ExprNode;
 NodePool::NodePool() = default;
 
 Node * NodePool::newNode() {
-    if (m_count == INIT_BUF_SIZE) {
+    if (m_count >= INIT_BUF_SIZE) {
         ++m_count;
         m_exBuffer.push_back(Node{});
         return &m_exBuffer.back();
