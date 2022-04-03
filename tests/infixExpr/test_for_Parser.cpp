@@ -40,7 +40,7 @@ int main () {
     auto * root = parser.parse();
     printTree(root); std::cout << "\n";
 
-    std::cout << root->evalCallback(root).toString(10) << "\n";
+    std::cout << root->evalCallback(root, false).toString(10) << "\n";
 
     return 0;
 }

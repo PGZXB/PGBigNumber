@@ -2,6 +2,7 @@
 #define PGBIGNUMBER_INFIXEXPR_EXPRTREE_H
 
 #include <deque>
+#include <future>
 
 #include "fwd.h"
 #include "Token.h"
@@ -15,21 +16,29 @@ struct ExprNode {
         static constexpr Enum VAL_NODE = 2;
     };
 
+    std::uint32_t indexInPool{(std::uint32_t)-1};
     std::vector<ExprNode*> children;
-    std::function<Value(ExprNode*)> evalCallback = nullptr;
+    
+    std::function<Value(ExprNode*, bool)> evalCallback = nullptr;
     std::function<OpCode(ExprNode*)> genOpCodeCallback = nullptr;
+    std::function<void(ExprNode*)> pevalTask = nullptr; // only for parallel-eval
+
     NodeType nodeType = NodeType::INVALID;
     Enum type = 0;
 
     Value val;
     SymbolTable::Symbol * symbol = nullptr;
+    std::promise<Value> valPromise; // only for parallel-eval
 };
 
 class NodePool {
-    static constexpr SizeType INIT_BUF_SIZE = 32;
+    static constexpr std::uint32_t INIT_BUF_SIZE = 32;
     using Node = ExprNode;
 public:
     NodePool();
+
+    Node * get(std::uint32_t index);
+    std::uint32_t count() const;
 
     Node * newNode();
 
@@ -45,7 +54,7 @@ public:
 private:
     Node m_initBuffer[INIT_BUF_SIZE];
     std::deque<Node> m_exBuffer;
-    SizeType m_count{0};
+    std::uint32_t m_count{0};
 };
 
 PGBN_INFIXEXPR_NAMESPACE_END

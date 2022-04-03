@@ -7,6 +7,7 @@ PGBN_EXPR_NAMESPACE_START
 using Int = pgbn::BigInteger;
 
 Int eval(const StringArg& expr, Status *status = nullptr);
+Int peval(const StringArg& expr, int threads = -1, Status *status = nullptr);
 
 PGBN_EXPR_NAMESPACE_END
 #endif

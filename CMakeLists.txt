@@ -43,3 +43,6 @@ add_subdirectory(c)
 file(GLOB_RECURSE  pgbn_src_files src/*.cpp)
 project(${PGBN_PROJECT_NAME})
 add_library(${PGBN_PROJECT_NAME} STATIC ${pgbn_src_files})
+
+find_package(Threads)
+target_link_libraries(${PGBN_PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT})

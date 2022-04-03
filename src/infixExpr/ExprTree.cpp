@@ -5,23 +5,25 @@ using namespace pgbn::infixExpr;
 
 PGBN_INFIXEXPR_NAMESPACE_START namespace detail {
 
-inline static Value eval(ExprNode * node) {
-    return node->evalCallback(node);
+inline static Value eval(ExprNode * node, bool peval) {
+    return peval ?
+        node->valPromise.get_future().get() : // Wait
+        node->evalCallback(node, false);
 }
 
-static Value ifElseNodeEvalCallback(ExprNode * node) {
+static Value ifElseNodeEvalCallback(ExprNode * node, bool peval) {
     PGZXB_DEBUG_ASSERT(node->children.size() == 3);
     auto & ch = node->children;
-    return !eval(ch[0]).isZero() ? eval(ch[1]) : eval(ch[2]);
+    return !eval(ch[0], peval).isZero() ? eval(ch[1], peval) : eval(ch[2], peval);
 }
 
-static Value binOpEvalCallback(ExprNode * node) {
+static Value binOpEvalCallback(ExprNode * node, bool peval) {
 #define lOpAssRAndReturn(op) left.op##Assign(right); return left
     PGZXB_DEBUG_ASSERT(node->children.size() == 2);
     auto & ch = node->children;
 
-    auto left = eval(ch[0]);
-    auto right = eval(ch[1]);
+    auto left = eval(ch[0], peval);
+    auto right = eval(ch[1], peval);
 
     switch (node->nodeType) {
     case TokenType::OR :
@@ -76,10 +78,10 @@ static Value binOpEvalCallback(ExprNode * node) {
 #undef HELPER
 }
 
-static Value unaryOpEvalCallback(ExprNode * node) {
+static Value unaryOpEvalCallback(ExprNode * node, bool peval) {
     PGZXB_DEBUG_ASSERT(node->children.size() == 1);
     auto & ch = node->children[0];
-    auto val = eval(ch);
+    auto val = eval(ch, peval);
 
     switch(node->nodeType) {
     case TokenType::ADD : // +
@@ -105,7 +107,7 @@ static Value unaryOpEvalCallback(ExprNode * node) {
     return {};
 }
 
-static Value valEvalCallback(ExprNode * node) {
+static Value valEvalCallback(ExprNode * node, bool) {
     PGZXB_DEBUG_ASSERT(node->children.empty());
     if (node->nodeType == ExprNode::NodeType::LITERAL)
         return node->val;
@@ -115,16 +117,26 @@ static Value valEvalCallback(ExprNode * node) {
     return {};
 }
 
-static Value builtinFuncEvalCallback(ExprNode * node) {
+static Value builtinFuncEvalCallback(ExprNode * node, bool peval) {
     PGZXB_DEBUG_ASSERT(node->nodeType == ExprNode::NodeType::BUILTINFUNC);
     Func func = node->symbol->as<Func>();
     if (func.argCount != -1 && static_cast<SizeType>(func.argCount) != node->children.size()) PGBN_GetGlobalStatus() = ErrCode::PARSE_INFIXEXPR_BUILTINFUNC_CALL_NOT_MATCH;
     PGZXB_DEBUG_ASSERT(!!func.nativeCall);
     std::vector<Value> args;
     for (auto * ch : node->children) { 
-        args.push_back(eval(ch));
+        args.push_back(eval(ch, peval));
     }
     return func.nativeCall(args);
+}
+
+static void pevalTask(ExprNode * node) {
+    // std::ostringstream oss;
+    // oss << std::this_thread::get_id();
+    // std::cerr << pgfmt::format("Thread#{0} node#{1} start\n", oss.str(), (std::uint64_t)node );
+    auto temp = node->evalCallback(node, true);
+    node->valPromise.set_value(temp);
+    // std::cerr << pgfmt::format("Thread#{0} node#{1}: peval = {2}\n", oss.str(),
+    //     (std::uint64_t)node, temp.cmp(INT64_MAX) == 1 ? temp.toString(10).substr(0, 50).append("...") : temp.toString(10));
 }
 
 } PGBN_INFIXEXPR_NAMESPACE_END
@@ -134,14 +146,29 @@ using Node  = ExprNode;
 // NodePool's public-funcitons
 NodePool::NodePool() = default;
 
+Node * NodePool::get(std::uint32_t index) {
+    PGZXB_DEBUG_ASSERT_EX("index out of bound", index < m_count);
+    if (index < INIT_BUF_SIZE)
+        return &m_initBuffer[index];
+    return &m_exBuffer[index - INIT_BUF_SIZE];
+}
+
+std::uint32_t NodePool::count() const {
+    return m_count;
+}
+
 Node * NodePool::newNode() {
+    Node * res = nullptr;
     if (m_count >= INIT_BUF_SIZE) {
-        ++m_count;
         m_exBuffer.push_back(Node{});
-        return &m_exBuffer.back();
+        res = &m_exBuffer.back();
+    } else {
+        res = &m_initBuffer[m_count];
     }
 
-    return &m_initBuffer[m_count++];
+    res->indexInPool = m_count++; // from 0
+    res->pevalTask = detail::pevalTask;
+    return res;
 }
 
 Node * NodePool::newIfElseNode(Node * cond, Node * then, Node * els) {
