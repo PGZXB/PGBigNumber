@@ -3,7 +3,7 @@
 using namespace pgbn;
 
 int main() {
-	PGZXB_DEBUG_ASSERT(isLittleEndian() == checkLittleEndian());
-	PGZXB_DEBUG_Print("PASSED");
-	return 0;
+    PGZXB_DEBUG_ASSERT(isLittleEndian() == checkLittleEndian());
+    PGZXB_DEBUG_Print("PASSED");
+    return 0;
 }
