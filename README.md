@@ -13,7 +13,7 @@ git clone https://github.com/PGZXB/PGBigNumber.git PGBigNumber
 cd PGBigNumber
 mkdir build
 cd build
-cmake ..
+PGBN_BUILD_TESTS=1 cmake ..
 make
 ./tests/test_for_calcu # Optional, to verify correctness 
 cd ..
