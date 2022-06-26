@@ -88,6 +88,10 @@ inline constexpr bool isLittleEndian() {  // FIXME : 待跨平台
 namespace err {
 
 }
+
+// pre-define
+class BigInteger;
+
 PGBN_NAMESPACE_END
 
 namespace pgbn = ::pg::base::bigNumber;
