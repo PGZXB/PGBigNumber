@@ -257,6 +257,7 @@ pgbn::BigInteger pgbn::BigInteger::operator+ () const { return *this; }
 pgbn::BigInteger pgbn::BigInteger::operator- () const { return BigInteger(*this).negate(); }
 
 pgbn::BigInteger pgbn::BigInteger::negated() const { return -*this; }
+pgbn::BigInteger pgbn::BigInteger::absoluted() const { return BigInteger{*this}.abs(); }
 
 pgbn::BigInteger & pgbn::BigInteger::negate() { m_pImpl->negate(); return *this; }
 pgbn::BigInteger & pgbn::BigInteger::abs()    { m_pImpl->abs();    return *this; }

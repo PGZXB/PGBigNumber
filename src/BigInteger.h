@@ -30,10 +30,10 @@ public:
     BigInteger(BigInteger && other) noexcept;
 
     // from POD-integer : only for int64_t
-    explicit BigInteger(std::int64_t i);
+    BigInteger(std::int64_t i);
 
     // from Human-String, don't support 'E', like 0|[1-9|A-Z|a-z][0-9|A-Z|a-z]*
-    explicit BigInteger(const StringArg & str, int radix = 10, bool * ok = nullptr);
+    BigInteger(const StringArg & str, int radix = 10, bool * ok = nullptr);
 
     // from infix-expression, like "2021 ^ 23333 + (23! * (2^3 - 3))",
     // support +, -, *, /(floor-div), !(fact), **(pow), (, ), &(and), |(or), ^(xor), ~(not),
@@ -138,6 +138,7 @@ public:
     BigInteger operator+ () const;
     BigInteger operator- () const;
     BigInteger negated() const; // <=> operator-()
+    BigInteger absoluted() const;
     BigInteger & negate();
     BigInteger & abs();
     BigInteger & notSelf();
