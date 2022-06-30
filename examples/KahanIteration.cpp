@@ -1,3 +1,4 @@
+#include <iostream>
 #include "PGBigNumber/Fraction.h"
 
 using pgbn::experimental::Fraction;
