@@ -48,8 +48,8 @@
 
 struct ResultInfo {
     std::string msg = "";
-    std::size_t cnt = 0;
-    std::size_t nanosec = 0;
+    std::uint32_t cnt = 0;
+    std::uint32_t nanosec = 0;
 };
 
 namespace pg::util::stringUtil::__IN_fmtUtil {
@@ -85,13 +85,13 @@ inline std::string strToPythonHex(std::string && other) {
 }
 
 std::tuple<std::vector<std::string>, std::vector<ResultInfo>> 
-    generateExamples(std::size_t randSeed, std::size_t n, std::size_t m, std::size_t minbytes, std::size_t maxbytes) {
+    generateExamples(std::uint32_t randSeed, std::uint32_t n, std::uint32_t m, std::uint32_t minbytes, std::uint32_t maxbytes) {
     struct AutoDeleter {
         ~AutoDeleter() { free(ptr); }
         void * ptr = nullptr;
     };
     struct TimeCounter {
-        TimeCounter(std::size_t & cntBinding) 
+        TimeCounter(std::uint32_t & cntBinding) 
         : cnt(cntBinding), start(std::chrono::steady_clock::now().time_since_epoch().count()) {
         }
 
@@ -99,8 +99,8 @@ std::tuple<std::vector<std::string>, std::vector<ResultInfo>>
             cnt += (std::chrono::steady_clock::now().time_since_epoch().count() - start);
         }
 
-        std::size_t & cnt;
-        std::size_t start = 0;
+        std::uint32_t & cnt;
+        std::uint32_t start = 0;
     };
     struct BIImplAndStr {
         BIImplAndStr(const pgbn::BigIntegerImpl & bii, const std::string & str)
@@ -116,17 +116,17 @@ std::tuple<std::vector<std::string>, std::vector<ResultInfo>>
     { // Generate n BigIntegerImpl(s) randomly
         AutoDeleter deleter;
 
-        std::uniform_int_distribution<std::size_t> gLen(minbytes, maxbytes);
+        std::uniform_int_distribution<std::uint32_t> gLen(minbytes, maxbytes);
         std::uniform_int_distribution gByte(0, 255);
 
         pgbn::Byte * bytes = (pgbn::Byte *)std::malloc(maxbytes);
         deleter.ptr = bytes;
 
-        for (std::size_t i = 0; i < n; ++i) {
+        for (std::uint32_t i = 0; i < n; ++i) {
             // Rand length[minbytes, maxbytes]
-            std::size_t len = gLen(eng);
+            std::uint32_t len = gLen(eng);
             // Rand bytes
-            for (std::size_t j = 0; j < len; ++j)
+            for (std::uint32_t j = 0; j < len; ++j)
                 bytes[j] = gByte(eng);
             // Create BigIntegerImpl & Add it to numbers
             auto & temp = numbers.emplace_back(pgbn::BigIntegerImpl(bytes, len), "");
@@ -135,7 +135,7 @@ std::tuple<std::vector<std::string>, std::vector<ResultInfo>>
         }
     }
 
-    std::uniform_int_distribution<std::size_t> gPair(0, n - 1);
+    std::uniform_int_distribution<std::uint32_t> gPair(0, n - 1);
     std::uniform_int_distribution<std::uint64_t> gU64(0, 10000);
 
     // Test callbacks
@@ -243,21 +243,21 @@ std::tuple<std::vector<std::string>, std::vector<ResultInfo>>
         { "Get-Bin And From-Bin", 0, 0 },
     };
 
-    auto getTimeCounterGenerator = [&infos] (std::size_t index) {
+    auto getTimeCounterGenerator = [&infos] (std::uint32_t index) {
         return [index, &infos] () {
             return TimeCounter(infos[index].nanosec);
         };
     };
 
-    const std::size_t opNum = sizeof(operations) / sizeof(*operations);
+    const std::uint32_t opNum = sizeof(operations) / sizeof(*operations);
     PGZXB_DEBUG_ASSERT(opNum == infos.size());
 
-    std::uniform_int_distribution<std::size_t> gOp(0, opNum - 1);
+    std::uniform_int_distribution<std::uint32_t> gOp(0, opNum - 1);
 
     // Create m examples randomly
-    for (std::size_t i = 0; i < m; ++i) {
+    for (std::uint32_t i = 0; i < m; ++i) {
 
-        std::size_t index = gOp(eng);
+        std::uint32_t index = gOp(eng);
         ++infos[index].cnt;
         operations[index](getTimeCounterGenerator(index));
     }
@@ -307,8 +307,8 @@ int main (int argc, char * argv[]) {
     std::string python_filename   = "test_for_calcu.py";       // -p
     std::string log_file          = "test_for_calcu.log";      // -l
     std::string examples_filename = "test_for_calcu.examples"; // -e
-    std::size_t seed              = std::time(nullptr);        // -s
-    std::size_t n(10), m(50), minbytes(1), maxbytes(16);       // -n -m -b -B
+    std::uint32_t seed              = std::time(nullptr);        // -s
+    std::uint32_t n(10), m(50), minbytes(1), maxbytes(16);       // -n -m -b -B
 
     // Parse cmd args
     using PCC = pg::util::ParseCmdConfig;
@@ -361,7 +361,7 @@ int main (int argc, char * argv[]) {
         std::cout << pgfmt::format("Generating Examples(With Seed {0})\n", seed);
         auto [temp, infos] = generateExamples(seed, n, m, minbytes, maxbytes);
         std::cout << "Generate Examples Successfully\n";
-        std::size_t totalCnt = 0;
+        std::uint32_t totalCnt = 0;
         double totalMicroSec = 0;
         std::cout << "+================== Examples Running Infomation ===================+\n";
         for (const auto & info : infos) {
@@ -391,7 +391,7 @@ int main (int argc, char * argv[]) {
         std::cout << "Update Examples-file Successfully\n";
         
         std::cout << "Generating Python Code\n";
-        std::string python_code = pgfmt::format(format, log_file, temp.size(), temp, buffer);
+        std::string python_code = pgfmt::format(format, log_file, (std::uint32_t)temp.size(), temp, buffer);
         std::ofstream pfile(python_filename);
         pfile << python_code;
         std::cout << "Generate Python Code Successfully\n";

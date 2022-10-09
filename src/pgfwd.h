@@ -10,9 +10,10 @@
 
 #include <cstdint>
 #include <cstring>
-#include <functional>
 #include <string>
 #include <limits>
+#include <functional>
+#include <unordered_map>
 
 #ifdef _MSC_VER
 #include <intrin.h>
